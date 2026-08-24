@@ -1,0 +1,7 @@
+interface:
+  display_name: "Java Backend Code Quality"
+  short_description: "Guide and check quality in changed Java backend code"
+  default_prompt: "Use $java-backend-code-quality to implement or review the Java backend code currently in scope."
+
+policy:
+  allow_implicit_invocation: true
