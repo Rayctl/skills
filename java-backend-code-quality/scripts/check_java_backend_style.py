@@ -27,6 +27,15 @@ IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_$][A-Za-z0-9_$]*\s*$")
 ANNOTATION_TOKEN_PATTERN = re.compile(r"@(?:[A-Za-z_$][A-Za-z0-9_$.]*)")
 CATCH_PATTERN = re.compile(r"\bcatch\s*\(")
 BEHAVIOR_PATTERN = re.compile(r"\b(?:return|break|continue)\b|\bthrow\s+new\b")
+CONTROL_FLOW_PATTERN = re.compile(r"\b(?:if|for|while|do|switch|catch)\b")
+IF_PATTERN = re.compile(r"\bif\b")
+TERMINATION_PATTERN = re.compile(r"\b(?:throw|return|break|continue)\b")
+LOCAL_EXTRACTION_PATTERN = re.compile(
+    r"^(?:final\s+)?(?:var|[A-Za-z_$][A-Za-z0-9_$\.\[\]]*"
+    r"(?:\s*<[^;=]+>)?(?:\s*\[\])?)\s+"
+    r"[A-Za-z_$][A-Za-z0-9_$]*\s*=",
+    re.DOTALL,
+)
 LINE_RANGE_PATTERN = re.compile(r"^(.*):([1-9][0-9]*)-([1-9][0-9]*)$")
 DIFF_HUNK_PATTERN = re.compile(
     r"^@@ -[0-9]+(?:,[0-9]+)? \+([0-9]+)(?:,([0-9]+))? @@"
@@ -302,6 +311,7 @@ def method_candidates(masked, paren_pairs, brace_pairs, depths, classes, starts)
             "member_end": member_end,
             "owner_range": owner_range,
             "declaration_line": line_number(starts, declaration_token),
+            "body_opening": body_opening,
         })
 
     unique = {}
@@ -490,6 +500,197 @@ def inside_any(index, ranges):
     return any(start < index < end for start, end in ranges)
 
 
+def standalone_top_level_comments(method, masked, comments, starts, depths):
+    body_opening = method["body_opening"]
+    if body_opening is None:
+        return []
+    body_depth = depths[body_opening] + 1
+    result = []
+    for _, start, end in comments:
+        if not body_opening < start < end <= method["member_end"]:
+            continue
+        if depths[start] != body_depth:
+            continue
+        comment_line = line_number(starts, start)
+        if masked[starts[comment_line - 1]:start].strip():
+            continue
+        result.append((start, end))
+    return result
+
+
+def effective_code_line_count(masked, body_opening, body_closing):
+    return sum(
+        bool(line.strip())
+        for line in masked[body_opening + 1:body_closing].splitlines()
+    )
+
+
+def check_intent_comments(masked, comments, methods, starts, source_lines, depths):
+    findings = []
+    for method in methods:
+        body_opening = method["body_opening"]
+        if body_opening is None:
+            continue
+        body_closing = method["member_end"]
+        if effective_code_line_count(masked, body_opening, body_closing) < 15:
+            continue
+        if len(CONTROL_FLOW_PATTERN.findall(masked, body_opening + 1, body_closing)) < 3:
+            continue
+        if standalone_top_level_comments(method, masked, comments, starts, depths):
+            continue
+
+        declaration_line = method["declaration_line"]
+        findings.append(Finding(
+            declaration_line,
+            "STYLE-INTENT-001",
+            "complex method requires at least one top-level stage intent comment",
+            source_line(source_lines, declaration_line),
+            declaration_line,
+            line_number(starts, body_closing),
+        ))
+    return findings
+
+
+def statement_semicolon(masked, start, limit, depths, expected_depth):
+    cursor = masked.find(";", start, limit)
+    while cursor != -1:
+        if depths[cursor] == expected_depth:
+            return cursor
+        cursor = masked.find(";", cursor + 1, limit)
+    return None
+
+
+def terminating_guard_end(masked, if_start, method_end, paren_pairs,
+                          brace_pairs, depths):
+    opening_paren = if_start + 2
+    while opening_paren < method_end and masked[opening_paren].isspace():
+        opening_paren += 1
+    if opening_paren >= method_end or masked[opening_paren] != "(":
+        return None
+    closing_paren = paren_pairs.get(opening_paren)
+    if closing_paren is None or closing_paren >= method_end:
+        return None
+
+    statement_start = closing_paren + 1
+    while statement_start < method_end and masked[statement_start].isspace():
+        statement_start += 1
+    if statement_start >= method_end:
+        return None
+
+    if masked[statement_start] == "{":
+        statement_end = brace_pairs.get(statement_start)
+        if statement_end is None or statement_end >= method_end:
+            return None
+        after = statement_end + 1
+        while after < method_end and masked[after].isspace():
+            after += 1
+        if re.match(r"else\b", masked[after:method_end]):
+            return None
+
+        body_depth = depths[statement_start] + 1
+        terminations = [
+            match for match in TERMINATION_PATTERN.finditer(
+                masked, statement_start + 1, statement_end
+            )
+            if depths[match.start()] == body_depth
+        ]
+        if not terminations:
+            return None
+        termination = terminations[-1]
+        semicolon = statement_semicolon(
+            masked, termination.start(), statement_end, depths, body_depth
+        )
+        if semicolon is None or masked[semicolon + 1:statement_end].strip():
+            return None
+        return statement_end + 1
+
+    termination = TERMINATION_PATTERN.match(masked, statement_start, method_end)
+    if termination is None:
+        return None
+    statement_depth = depths[statement_start]
+    semicolon = statement_semicolon(
+        masked, termination.start(), method_end, depths, statement_depth
+    )
+    return None if semicolon is None else semicolon + 1
+
+
+def only_local_extractions(segment):
+    remaining = segment.strip()
+    while remaining:
+        semicolon = remaining.find(";")
+        if semicolon == -1:
+            return False
+        statement = remaining[:semicolon + 1].strip()
+        if not LOCAL_EXTRACTION_PATTERN.match(statement):
+            return False
+        if any(character in statement for character in "{}"):
+            return False
+        remaining = remaining[semicolon + 1:].strip()
+    return True
+
+
+def entry_guard_cluster(method, masked, paren_pairs, brace_pairs, depths):
+    body_opening = method["body_opening"]
+    if body_opening is None:
+        return None
+    body_closing = method["member_end"]
+    body_depth = depths[body_opening] + 1
+    direct_ifs = [
+        match.start() for match in IF_PATTERN.finditer(
+            masked, body_opening + 1, body_closing
+        )
+        if depths[match.start()] == body_depth
+    ]
+
+    cursor = body_opening + 1
+    guards = []
+    for if_start in direct_ifs:
+        if if_start < cursor:
+            continue
+        if not only_local_extractions(masked[cursor:if_start]):
+            break
+        guard_end = terminating_guard_end(
+            masked, if_start, body_closing, paren_pairs, brace_pairs, depths
+        )
+        if guard_end is None:
+            break
+        guards.append((if_start, guard_end))
+        cursor = guard_end
+    return guards if len(guards) >= 3 else None
+
+
+def check_guard_comments(masked, comments, methods, starts, source_lines,
+                         paren_pairs, brace_pairs, depths):
+    findings = []
+    for method in methods:
+        guards = entry_guard_cluster(
+            method, masked, paren_pairs, brace_pairs, depths
+        )
+        if guards is None:
+            continue
+        first_guard = guards[0][0]
+        has_leading_comment = any(
+            end <= first_guard
+            for start, end in standalone_top_level_comments(
+                method, masked, comments, starts, depths
+            )
+            if start < first_guard
+        )
+        if has_leading_comment:
+            continue
+
+        guard_line = line_number(starts, first_guard)
+        findings.append(Finding(
+            guard_line,
+            "STYLE-GUARD-001",
+            "entry guard cluster requires one leading intent comment",
+            source_line(source_lines, guard_line),
+            method["declaration_line"],
+            line_number(starts, method["member_end"]),
+        ))
+    return findings
+
+
 def check_catch_comments(masked, comments, starts, source_lines, paren_pairs,
                          brace_pairs, classes):
     findings = []
@@ -547,6 +748,13 @@ def analyze_source(source):
     ))
     findings.extend(check_catch_comments(
         masked, comments, starts, source_lines, paren_pairs, brace_pairs, classes
+    ))
+    findings.extend(check_guard_comments(
+        masked, comments, methods, starts, source_lines,
+        paren_pairs, brace_pairs, depths
+    ))
+    findings.extend(check_intent_comments(
+        masked, comments, methods, starts, source_lines, depths
     ))
     return sorted(findings, key=lambda finding: (finding.line, finding.rule))
 

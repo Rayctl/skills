@@ -610,6 +610,243 @@ class CatchRuleTests(CheckerTestCase):
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
 
 
+class IntentAndGuardRuleTests(CheckerTestCase):
+    def generalized_url_builder_source(self):
+        return """
+            class RequestUrlBuilder {
+                String build(Config config, Request request) {
+                    if (config == null) {
+                        throw new IllegalArgumentException("config");
+                    }
+                    if (request == null) {
+                        throw new IllegalArgumentException("request");
+                    }
+                    String baseUrl = config.baseUrl();
+                    if (baseUrl == null) {
+                        throw new IllegalStateException("baseUrl");
+                    }
+                    if (config.path() == null) {
+                        throw new IllegalStateException("path");
+                    }
+                    java.util.Set<String> placeholders = config.placeholders();
+                    java.util.Map<String, Object> mappedPath = request.pathValues();
+                    if (!placeholders.equals(mappedPath.keySet())) {
+                        throw new IllegalArgumentException("path values");
+                    }
+                    java.util.Map<String, Object> pathValues = new java.util.LinkedHashMap<>();
+                    for (java.util.Map.Entry<String, Object> entry : mappedPath.entrySet()) {
+                        if (entry.getValue() == null) {
+                            throw new IllegalArgumentException("path value");
+                        }
+                        pathValues.put(entry.getKey(), entry.getValue());
+                    }
+                    try {
+                        String endpoint = expand(baseUrl, config.path(), pathValues);
+                        String query = buildEncodedQuery(request.queryValues());
+                        if (query == null) {
+                            return endpoint;
+                        }
+                        return endpoint + "?" + query;
+                    } catch (IllegalArgumentException exception) {
+                        // Invalid expansion prevents sending an ambiguous request
+                        throw new IllegalStateException("invalid URL", exception);
+                    }
+                }
+
+                String buildEncodedQuery(java.util.Map<String, Object> values) {
+                    if (values == null || values.isEmpty()) {
+                        return null;
+                    }
+                    StringBuilder query = new StringBuilder();
+                    for (java.util.Map.Entry<String, Object> entry : values.entrySet()) {
+                        if (entry.getKey() == null || entry.getValue() == null) {
+                            continue;
+                        }
+                        if (entry.getValue() instanceof java.util.Collection) {
+                            for (Object item : (java.util.Collection<?>) entry.getValue()) {
+                                if (item != null) {
+                                    query.append(entry.getKey()).append(stringifyQueryValue(item));
+                                }
+                            }
+                        } else {
+                            query.append(entry.getKey()).append(stringifyQueryValue(entry.getValue()));
+                        }
+                    }
+                    return query.toString();
+                }
+
+                String stringifyQueryValue(Object value) {
+                    if (value instanceof String) {
+                        return (String) value;
+                    }
+                    if (value instanceof Number || value instanceof Boolean) {
+                        return String.valueOf(value);
+                    }
+                    try {
+                        return serialize(value);
+                    } catch (RuntimeException exception) {
+                        // Serialization failure preserves the legacy string fallback
+                        return String.valueOf(value);
+                    }
+                }
+            }
+        """
+
+    def complex_method_source(self, top_level_comment=""):
+        return f"""
+            class Selector {{
+                /**
+                 * Selects the first usable candidate
+                 */
+                Object select(java.util.List<Object> values) {{
+                    Object selected = null;
+                    {top_level_comment}
+                    try {{
+                        for (Object value : values) {{
+                            if (isPrimary(value)) {{
+                                // Nested branch comments only describe their branch
+                                selected = value;
+                            }} else if (isCompatible(value)) {{
+                                selected = adapt(value);
+                            }}
+                        }}
+                    }} catch (RuntimeException exception) {{
+                        // Candidate inspection failure returns the stable empty fallback
+                        return null;
+                    }}
+                    log.info("candidate selection completed");
+                    while (selected != null && !isReady(selected)) {{
+                        selected = next(selected);
+                    }}
+                    return selected;
+                }}
+            }}
+        """
+
+    def guard_source(self, guards, comment="", extraction_after=None):
+        statements = []
+        for index in range(guards):
+            statements.extend([
+                f"if (input.value{index}() == null) {{",
+                f"    throw new IllegalArgumentException(\"value{index}\");",
+                "}",
+            ])
+            if extraction_after == index:
+                statements.append("String selected = input.selected();")
+        if extraction_after is None:
+            statements.append("String selected = input.selected();")
+        statements.append("return selected;")
+        body = "\n".join("                    " + line for line in statements)
+        return f"""
+            class GuardedBuilder {{
+                String build(Input input) {{
+                    {comment}
+{body}
+                }}
+            }}
+        """
+
+    def test_generalized_url_builder_reports_guard_and_stage_omissions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary, "RequestUrlBuilder.java", self.generalized_url_builder_source()
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-GUARD-001"), result.stdout)
+            self.assertEqual(2, result.stdout.count("STYLE-INTENT-001"), result.stdout)
+            self.assertIn("String build(Config config, Request request)", result.stdout)
+            self.assertIn("String buildEncodedQuery", result.stdout)
+            self.assertNotIn("String stringifyQueryValue", result.stdout)
+
+    def test_two_entry_guards_do_not_trigger_guard_rule(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(temporary, "TwoGuards.java", self.guard_source(2))
+
+            result = self.run_checker(path)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_three_entry_guards_require_one_leading_comment(self):
+        cases = {
+            "missing": ("", 1),
+            "present": ("// Separate missing inputs before selecting the usable value", 0),
+        }
+        for name, (comment, expected_code) in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
+                path = self.write(
+                    temporary, "ThreeGuards.java", self.guard_source(3, comment)
+                )
+
+                result = self.run_checker(path)
+
+                self.assertEqual(expected_code, result.returncode, result)
+                self.assertEqual(
+                    expected_code, result.stdout.count("STYLE-GUARD-001"), result.stdout
+                )
+
+    def test_local_extraction_between_entry_guards_keeps_the_cluster(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "ExtractedGuards.java",
+                self.guard_source(3, extraction_after=1),
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertIn("STYLE-GUARD-001", result.stdout)
+
+    def test_javadoc_log_catch_and_nested_comments_do_not_replace_stage_intent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary, "Selector.java", self.complex_method_source()
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-INTENT-001"), result.stdout)
+            self.assertNotIn("STYLE-CATCH-001", result.stdout)
+
+    def test_top_level_stage_comment_satisfies_the_automatic_check(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "CommentedSelector.java",
+                self.complex_method_source(
+                    "// Compare candidates before advancing the selected value"
+                ),
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_line_range_requires_an_intersection_with_the_complex_method(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = textwrap.dedent(self.complex_method_source()).lstrip("\n")
+            source = source.replace("class Selector {", "class Selector {\n    int marker;")
+            path = self.write(temporary, "ScopedSelector.java", source).resolve()
+            method_line = next(
+                index for index, line in enumerate(source.splitlines(), 1)
+                if "Object select(" in line
+            )
+
+            outside = self.run_checker("--line-range", f"{path}:2-2")
+            inside = self.run_checker(
+                "--line-range", f"{path}:{method_line}-{method_line}"
+            )
+
+            self.assertEqual(0, outside.returncode, outside.stdout + outside.stderr)
+            self.assertNotIn("STYLE-INTENT-001", outside.stdout)
+            self.assertEqual(1, inside.returncode, inside)
+            self.assertIn("STYLE-INTENT-001", inside.stdout)
+
+
 class LineRangeTests(CheckerTestCase):
     def test_line_range_only_reports_intersecting_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -720,6 +957,38 @@ class ChangedScopeTests(CheckerTestCase):
 
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertNotIn("STYLE-COMMENT-001", result.stdout)
+
+    def test_changed_mode_ignores_historical_complex_method_without_intent(self):
+        temporary, repo = self.make_repo()
+        with temporary:
+            self.write(repo, "Legacy.java", """
+                class Legacy {
+                    int calculate(int value) {
+                        int result = value;
+                        for (int index = 0; index < 3; index++) {
+                            if (result < index) {
+                                result += index;
+                            } else if (result > index) {
+                                result -= index;
+                            }
+                        }
+                        while (result < 10) {
+                            result++;
+                        }
+                        if (result > 20) {
+                            result = 20;
+                        }
+                        return result;
+                    }
+                }
+            """)
+            self.commit_all(repo, "base")
+            self.write(repo, "Current.java", "class Current {\n    int value;\n}\n")
+
+            result = self.run_checker("--changed", "--repo", repo)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertNotIn("STYLE-INTENT-001", result.stdout)
 
     def test_changed_mode_detects_staged_unstaged_and_untracked_java(self):
         temporary, repo = self.make_repo()

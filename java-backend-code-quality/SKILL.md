@@ -23,10 +23,12 @@ When creating or modifying Java backend code:
 
 1. Establish the current task surface before editing
 2. Apply the common rules to every changed Java range
-3. Reconstruct contracts, stages, ownership, and failure paths when behavior is non-trivial
-4. Keep the change scoped and follow established repository patterns
-5. Add or update tests in proportion to changed behavior and failure paths
-6. Run focused verification and re-read the final changed ranges
+3. Before writing a non-trivial method, partition its work into business or technical stages and identify each stage's reason, input boundary, result consumer, and failure consequence
+4. Reconstruct contracts, ownership, and failure paths when behavior is non-trivial
+5. Add names, structure, and intent comments while implementing instead of deferring them to a later cleanup pass
+6. Keep the change scoped and follow established repository patterns
+7. Add or update tests in proportion to changed behavior and failure paths
+8. Run focused verification, re-read the final changed ranges, and check every identified stage for intent-comment coverage
 
 ### Review Mode
 
@@ -57,6 +59,32 @@ Always inspect in-scope changed Java code for:
 - tests and verification proportional to changed behavior
 
 Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) when changed code coordinates multiple stages, side effects, resources, transactions, remote calls, asynchronous work, retries, caches, compensation, concurrency-sensitive writes, or non-obvious caller-visible failure policies. Do not load that reference for trivial accessors, data holders, pure predicates, or mechanical edits with none of those concerns.
+
+## Intent Comment Coverage
+
+Treat a non-trivial method as a sequence of semantic stages, not as one block covered by its JavaDoc. During implementation and review, identify the stages first, then verify that a maintainer can understand why each stage exists, what boundary it enforces, where its result goes, and what consequence it owns.
+
+Add a concise comment at the start of a stage when names and types do not already explain the reason, constraint, ordering, or downstream guarantee. Always perform this semantic check around:
+
+- comparisons between values obtained from independent sources, especially when exact agreement or precedence is required
+- filtering, flattening, grouping, encoding, or reshaping that changes which data continues or how downstream code interprets it
+- steps whose order preserves correctness, compatibility, idempotency, or failure isolation
+- compatibility paths that deliberately retain legacy representation, fallback, or caller-visible behavior
+- calls whose ordinary-looking name hides policy enforcement, transaction ownership, compensation, cross-boundary persistence, or another special responsibility
+
+Method JavaDoc states the method contract; it does not cover method-body stages. Logs, catch-local comments, and comments nested inside a branch also do not explain a separate top-level stage. When a method contains multiple stages, check coverage stage by stage rather than accepting one arbitrary comment anywhere in the body.
+
+Do not translate syntax into comments. If a proposed comment can only say that code checks, converts, or calls something already clear from names and types, improve the names, introduce a meaningful intermediate value, or split a stable responsibility instead. Do not add comments to obvious assignments, pure conditions, or direct calls whose complete action contract is already visible.
+
+Treat method-entry guard clauses as one validation cluster:
+
+- three or more terminating entry guards require one intent comment before the first guard, explaining the boundary or error categories separated by the cluster
+- allow pure local-value extraction between entry guards without ending the cluster
+- a guard terminates its rejected path with `throw`, `return`, `break`, or `continue`
+- do not add a repetitive comment to every `if`
+- fewer than three guards still require a cluster comment when they cross caller input, configuration, state, security, or error-classification boundaries; this remains a semantic review decision
+
+Report missing intent as `P2` when it hides a contract, ordering dependency, error classification, or failure guarantee likely to make later changes unsafe. Report it as `P3` when it only slows local understanding.
 
 ## Exception Boundaries
 
@@ -171,8 +199,12 @@ Use these deterministic rule identifiers:
 - `STYLE-COMMENT-001`: Java comment ends with a Chinese or English full stop
 - `STYLE-METHOD-001`: method declarations are not separated by exactly one blank line
 - `STYLE-CATCH-001`: a behavior-changing catch path lacks the required catch-local intent comment
+- `STYLE-GUARD-001`: at least three terminating method-entry guards lack one leading cluster intent comment
+- `STYLE-INTENT-001`: an obviously complex method has no top-level stage intent comment
 
-The checker cannot prove every retry, suppression, continue, compensation, degradation, fallback, or semantic-conversion path. Semantic review remains responsible for those cases and for deciding whether a comment communicates the required guarantee.
+`STYLE-INTENT-001` is intentionally conservative: it requires at least 15 non-blank code lines and at least three control-flow nodes before reporting a total absence of top-level stage comments. JavaDoc, catch-local comments, logs, and nested comments do not satisfy it. `STYLE-GUARD-001` recognizes terminating entry guards and permits pure local-value extraction between them. Both findings cover the containing method as evidence, so changed and line-range modes report them only when the selected scope intersects that method.
+
+The checker cannot judge comment quality, determine how many stages need comments, or prove every retry, suppression, continue, compensation, degradation, fallback, cross-source validation, or semantic-conversion path. Semantic review remains responsible for those cases, for guard clusters below the automatic threshold, and for deciding whether a comment communicates the required intent and guarantee.
 
 ## Close The Task
 
@@ -180,10 +212,11 @@ Before closing an implementation or declaring that no review findings remain:
 
 1. Recheck the current task surface and exclude unrelated historical, generated, and vendored code
 2. Compare important names with their complete action contracts
-3. Inspect behavior-changing catch paths for catch-local intent comments
-4. If the deep reference applied, inventory stages, contracts, and lifecycle owners
-5. Map tests to changed contracts and meaningful failure paths
-6. Run the deterministic checker on the reviewed paths or line ranges
+3. Partition every non-trivial changed method into stages and check top-level intent-comment coverage
+4. Inspect entry guard clusters and behavior-changing catch paths for their local intent comments
+5. If the deep reference applied, inventory stages, contracts, and lifecycle owners
+6. Map tests to changed contracts and meaningful failure paths
+7. Run the deterministic checker on the reviewed paths or line ranges
 
 Deliver review findings first, ordered by severity:
 
