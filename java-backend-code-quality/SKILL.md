@@ -141,16 +141,42 @@ Review changed class, method, field, parameter, and local-variable names in prop
 
 Require the name to match the complete implementation and caller use, not only the return type or a conventional verb. Prefer concrete repository and domain vocabulary familiar to maintainers over translated abstractions or generic wording that only sounds technical. Make a value name identify its data, state, source, or intended consumer when its type alone is insufficient.
 
-Do not blacklist generic verbs; evaluate whether they expose the real action contract:
+Perform a call-site readability check for each important method. Read only the receiver, method name, parameter roles, and how the result is used, without opening the implementation or relying on JavaDoc. The call should reveal:
 
-- `normalize` should identify the subject and one concrete canonical form or policy
-- `build` should primarily construct a value, not conceal dominant mutation, persistence, compensation, or policy enforcement
-- `resolve` should identify the authoritative value or decision and who owns defaults or ambiguity
-- `apply` should identify the rule or change, its target, and resulting state
-- `finalize` should correspond to a real terminal stage and its preserved guarantees
-- `process` and `handle` are acceptable only when the subject and boundary make the dispatch or lifecycle responsibility clear
+- the concrete subject, product, or decision
+- the primary action and meaningful result or state change
+- persistence, remote I/O, transaction, compensation, fallback, or other caller-relevant side effects
 
-When a verb hides unrelated actions, choose a specific name, split responsibilities, or expose a stage boundary. Do not report a name solely because it uses a generic verb. Report a misleading responsibility name as `P2` when it can cause callers to omit required policy or lifecycle behavior, and as `P3` when it only increases local reading cost.
+The receiver may supply a subject when it identifies one unambiguous responsibility; do not mechanically repeat it. However, quantity, container, transport, and generic carrier words such as `Batch`, `List`, `Data`, `Info`, `Context`, `Item`, and `Result` do not identify the business subject by themselves. A caller must not need an implementation jump merely to learn what is built, saved, transformed, or processed.
+
+Generic action verbs require a concrete subject, product, rule, or outcome. Reject a bare verb or a name whose remaining words still do not expose the action contract. Apply this default to:
+
+- construction: `build`, `create`, `make`, `prepare`, `generate`
+- conversion: `convert`, `map`, `transform`, `normalize`
+- lookup and decision: `get`, `find`, `query`, `load`, `resolve`, `check`, `validate`
+- mutation: `save`, `update`, `delete`, `apply`, `merge`, `sync`, `refresh`, `finalize`
+- orchestration: `process`, `handle`, `execute`, `run`
+
+Apply these verb-specific rules:
+
+- `build` names the concrete product and primarily constructs that product; `OutboundRequestUrlBuilder#build(config, request)` should be `buildOutboundRequestUrl`
+- `convertToXxx` and `mapToXxx` name a concrete target shape; keep the Java `To` convention and do not replace it with `2`
+- `transform` and `normalize` name the actual transformation, canonical form, or policy; adding only a broad subject, as in `normalizeSystemContext`, is insufficient when the performed action remains unknown
+- lookup names make caller-relevant absence behavior visible, distinguishing an optional search from a required value that throws when missing when repository conventions and types do not already do so
+- boolean decisions use `is`, `has`, `can`, or `should`; throwing validation uses a concrete contract name such as `validateRequestContract` or `requireEditableState`
+- mutation and orchestration names identify their target and must not disguise persistence, remote calls, transactions, compensation, or degradation as ordinary calculation
+- shape or quantity is only a qualifier: `saveBatch`, `buildData`, and `processList` remain unclear; prefer a concrete responsibility such as `saveApiConfigChanges`
+
+Allow a conventional short name only when its contract is already fixed and unambiguous:
+
+- an interface override or framework callback whose signature cannot be renamed, such as `run`, `handle`, or `execute`
+- a standard `Builder#build()` dedicated to one product, where state is accumulated before the call and the method accepts no business input or multi-stage orchestration responsibility
+- `create`, `save`, `update`, or `delete` on a receiver clearly identified as a `Repository`, `Mapper`, or `DAO`, when it performs the conventional single-store persistence operation
+- Java, JDK, or third-party conventions such as `toString`, `toBuilder`, and `toInstant`
+
+An `XxxBuilder#build(...)` that accepts business inputs and executes a complete flow does not receive the standard Builder exemption. A persistence abstraction that coordinates cross-store writes, compensation, or another special lifecycle must expose that responsibility despite its receiver name.
+
+After implementation, re-read the primary call sites and rename the method if its basic responsibility is not evident there. When a generic verb hides unrelated actions, choose a specific name, split responsibilities, or expose a stage boundary. Report a misleading responsibility name as `P2` when hidden persistence, absence, exception policy, or lifecycle behavior can cause misuse; report it as `P3` when it only increases navigation and local reading cost.
 
 ## Comments And Formatting
 

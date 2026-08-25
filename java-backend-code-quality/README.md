@@ -6,7 +6,7 @@
 
 通用规则适用于当前任务修改的 Java 生产代码和测试代码：
 
-- 名称应表达具体的数据含义、动作和结果，避免含糊或生硬的抽象词汇
+- 方法名应在调用点表达具体对象、动作和结果，通用动词不能只搭配批量、列表、数据等泛化词
 - 公共方法和具有调用方可见契约、生命周期或非显而易见行为的方法需要 JavaDoc
 - 非平凡方法在编码前划分处理阶段，完成后逐阶段检查意图注释覆盖
 - 独立数据来源比对、数据过滤或转换、执行顺序、兼容策略和隐藏特殊职责的调用点需要重点说明原因与后果
@@ -17,6 +17,33 @@
 当代码涉及多阶段协作、事务、补偿、缓存、跨存储、远程调用、异步、重试或资源生命周期时，skill 会加载通用的契约和生命周期附录。简单 getter、setter、直接转调、纯判断和显然的赋值不会被要求机械增加注释
 
 检查范围默认限于当前变更集。未修改的历史代码、生成代码和第三方代码不作为报告目标，但可以作为调用关系上下文读取
+
+## 方法命名
+
+方法名需要结合接收者、参数角色和返回值去向进行判断。调用方不查看实现或 JavaDoc，也应能理解操作对象、主要结果以及持久化、远程调用、事务、补偿或降级等关键副作用
+
+`build`、`create`、`convert`、`map`、`normalize`、`query`、`validate`、`save`、`update`、`process`、`handle` 等通用动词默认需要补充具体产物、对象、规则或结果。`Batch`、`List`、`Data`、`Info`、`Context`、`Item` 和 `Result` 只能描述形态，不能单独充当业务对象
+
+典型调整包括：
+
+```text
+OutboundRequestUrlBuilder#build(config, request) -> buildOutboundRequestUrl
+saveBatch                                      -> saveApiConfigChanges
+normalizeSystemContext                         -> 按实际动作命名，例如 fillMissingSystemIdentity
+convert                                        -> convertToApiUpdateBO
+map                                            -> mapToResponse
+```
+
+自定义转换方法使用 Java 常见的 `convertToXxx` 或 `mapToXxx`，目标形态必须明确，不使用数字 `2` 表示方向。布尔判断优先使用 `is`、`has`、`can`、`should`，抛异常的校验方法应写明被校验的对象或契约
+
+以下约定方法可以保留简短名称：
+
+- 接口覆写和框架强制回调，例如 `run`、`handle`、`execute`
+- 专用单一产物、调用前已累积状态且不接收业务入参的标准 `Builder#build()`
+- `Repository`、`Mapper`、`DAO` 上执行常规单库存储的 `create`、`save`、`update`、`delete`
+- Java、JDK 和第三方约定的 `toString`、`toBuilder`、`toInstant`
+
+带业务参数并执行完整流程的 `XxxBuilder#build(...)` 不属于标准 Builder 豁免。持久层方法如果还协调跨库写入、补偿或特殊生命周期，也必须在名称中暴露该职责
 
 ## 安装
 
