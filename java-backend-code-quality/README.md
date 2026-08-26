@@ -36,6 +36,20 @@ map                                            -> mapToResponse
 
 自定义转换方法使用 Java 常见的 `convertToXxx` 或 `mapToXxx`，目标形态必须明确，不使用数字 `2` 表示方向。布尔判断优先使用 `is`、`has`、`can`、`should`，抛异常的校验方法应写明被校验的对象或契约
 
+### 枚举查询命名
+
+新增枚举查询方法前，先检查当前仓库和相邻枚举的既有约定。方法名需要同时表达返回内容和查询字段，不能只写裸 `find`、`get` 或 `of`
+
+```text
+SignerTypeEnum#find(code)       -> getByCode
+OrderTypeEnum#getDescByCode     -> 保留，返回内容和查询字段均明确
+find(code)                      -> findByCode，仅当仓库使用 find 表达可缺失查询
+```
+
+返回枚举本身时可以遵循仓库已有的 `getByCode`，返回枚举属性时使用 `getDescByCode`、`getNameByCode` 等“返回内容 + By + 查询字段”结构。多个字段共同定位时应在名称中表达关键字段，或使用仓库中已有且调用点可理解的身份概念
+
+查不到时返回 `null`、返回 `Optional` 或抛出异常，均以当前仓库契约为准，并通过返回类型、空值注解、JavaDoc 或异常契约明确。Skill 不会为了统一命名而机械改变缺失语义。`valueOf` 默认保留给 Java 按枚举常量名解析，业务编码查询应使用 `ByCode` 或同等明确的本地约定
+
 以下约定方法可以保留简短名称：
 
 - 接口覆写和框架强制回调，例如 `run`、`handle`、`execute`

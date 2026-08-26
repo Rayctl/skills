@@ -163,6 +163,11 @@ Apply these verb-specific rules:
 - `convertToXxx` and `mapToXxx` name a concrete target shape; keep the Java `To` convention and do not replace it with `2`
 - `transform` and `normalize` name the actual transformation, canonical form, or policy; adding only a broad subject, as in `normalizeSystemContext`, is insufficient when the performed action remains unknown
 - lookup names make caller-relevant absence behavior visible, distinguishing an optional search from a required value that throws when missing when repository conventions and types do not already do so
+- enum lookup methods follow the naming pattern established by nearby enums before introducing a new convention; inspect the current repository rather than assuming one global Java style
+- enum lookup names expose both the returned value or property and every caller-relevant lookup field: use a repository convention such as `getByCode` for the enum value and `getDescByCode` for its description; reject bare `find`, `get`, or `of` because the lookup key and result contract are not visible
+- when a repository uses `find` specifically for optional lookup, retain that semantic but include the key, such as `findByCode`; do not use `find` alone merely because the method can return `null`
+- enum lookup absence behavior follows the repository contract and is made explicit through the return type, a nullability annotation, JavaDoc, or a documented exception; do not introduce `Optional`, nullable returns, or throwing behavior solely to satisfy a naming preference
+- reserve `valueOf` for Java's enum-constant-name contract unless the repository defines a distinct, unambiguous API; a business `code` lookup must say `ByCode` or follow an equally explicit local convention
 - boolean decisions use `is`, `has`, `can`, or `should`; throwing validation uses a concrete contract name such as `validateRequestContract` or `requireEditableState`
 - mutation and orchestration names identify their target and must not disguise persistence, remote calls, transactions, compensation, or degradation as ordinary calculation
 - shape or quantity is only a qualifier: `saveBatch`, `buildData`, and `processList` remain unclear; prefer a concrete responsibility such as `saveApiConfigChanges`
