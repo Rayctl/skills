@@ -63,6 +63,8 @@ Treat class JavaDoc, method JavaDoc, top-level stage comments, and branch-local 
 - class JavaDoc describes responsibility and collaboration boundaries; public methods and methods owning a caller-visible contract, lifecycle, or non-obvious behavior need JavaDoc describing meaningful inputs, outputs, failures, and lifecycle ownership; getters, setters, simple delegation, fixed exception construction, and self-evident private helpers may be exempt
 - non-trivial methods need concise top-level intent comments for stages whose reason, precondition, result consumer, ordering, compatibility choice, or failure consequence is not clear from names and types
 - always inspect independent-source comparisons, filtering or reshaping, compatibility paths, ordered steps, and calls with hidden policy or side effects
+- treat adjacent calls as separate stages when they switch processor responsibility, pass an intermediate result to another operation, or have different ordering, side-effect, or failure boundaries; add one intent comment immediately before each such stage, even when the receiver is the same
+- one comment may cover a cohesive sequence only when the calls share the same purpose, precondition, result consumer, and failure semantics; a comment for a preparation or mapping call cannot also stand for a later execution, persistence, or response call
 - three or more terminating entry guards need one comment before the first guard explaining the validation boundary; do not repeat a comment on every `if`
 - a smaller validation cluster still needs a comment when it crosses input, configuration, state, security, or error-classification boundaries
 - comments must explain why, boundary, downstream use, or consequence; do not translate obvious syntax into prose

@@ -10,6 +10,8 @@ Write down the actual stages before judging individual methods. A common shape i
 entry -> resolve inputs/state -> validate -> transform -> execute side effects -> persist/publish -> respond
 ```
 
+Treat consecutive calls as separate stages when they change processor responsibility, hand an intermediate result to the next operation, or introduce a different side-effect, ordering, or failure boundary. A shared receiver does not merge those stages. At the call site, add a separate intent comment immediately before each stage so the reader can see why the preparation or mapping result is produced, why execution waits for it, and which later stage consumes the result. Keep one comment for multiple calls only when their purpose, precondition, result consumer, and failure semantics are genuinely cohesive
+
 For each stage, identify:
 
 - input ownership and null, empty, absent, disabled, and default semantics
