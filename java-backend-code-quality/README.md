@@ -36,6 +36,8 @@ map                                            -> mapToResponse
 
 自定义转换方法使用 Java 常见的 `convertToXxx` 或 `mapToXxx`，目标形态必须明确，不使用数字 `2` 表示方向。布尔判断优先使用 `is`、`has`、`can`、`should`，抛异常的校验方法应写明被校验的对象或契约
 
+字段、参数和局部变量也要让数据、状态、来源、作用域或使用方可辨识，不能只依赖宽泛类型或 `data`、`context` 等泛化载体名称。方法 JavaDoc 说明输入、输出、异常和生命周期契约，不能替代方法体的阶段意图注释
+
 ### 枚举查询命名
 
 新增枚举查询方法前，先检查当前仓库和相邻枚举的既有约定。方法名需要同时表达返回内容和查询字段，不能只写裸 `find`、`get` 或 `of`
@@ -113,6 +115,8 @@ java-backend-code-quality/
 |-- agents/
 |   `-- openai.yaml
 |-- references/
+|   |-- naming.md
+|   |-- checker.md
 |   `-- contracts-and-lifecycles.md
 |-- scripts/
 |   `-- check_java_backend_style.py
@@ -120,7 +124,7 @@ java-backend-code-quality/
     `-- test_check_java_backend_style.py
 ```
 
-`SKILL.md` 保存 Codex 执行规则，`references/contracts-and-lifecycles.md` 只在复杂行为出现时加载。本 README 面向安装和使用，不参与 skill 执行
+`SKILL.md` 保存常驻的核心执行规则。命名细则、检查器操作和生命周期检查分别在相关任务中按需加载，避免大型项目中把所有细节固定放入上下文。本 README 面向安装和使用，不参与 skill 执行
 
 ## 样式检查器
 
