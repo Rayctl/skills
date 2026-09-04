@@ -1,6 +1,6 @@
 # Java Naming Reference
 
-Read this reference when a changed class, method, field, parameter, local variable, or enum has a generic name, when a method is added or renamed, or when a caller cannot understand the complete responsibility from the call site.
+Read this reference when an added or changed name uses generic vocabulary, an enum lookup is added or changed, a rename is under review, or a caller cannot understand the complete responsibility from the call site. Do not load it merely because a change introduces otherwise clear identifiers.
 
 ## Call-Site Test
 
@@ -19,7 +19,7 @@ Apply the same semantic check to fields, parameters, and local variables. When t
 Generic verbs need a concrete subject, product, rule, or outcome:
 
 - construction: `build`, `create`, `make`, `prepare`, `generate`
-- conversion: `convert`, `map`, `transform`, `normalize`
+- conversion: `convert`, `map`, `transform`
 - lookup or decision: `get`, `find`, `query`, `load`, `resolve`, `check`, `validate`
 - mutation: `save`, `update`, `delete`, `apply`, `merge`, `sync`, `refresh`, `finalize`
 - orchestration: `process`, `handle`, `execute`, `run`
@@ -28,17 +28,34 @@ Apply the action to the actual contract:
 
 - `build` names the concrete product and primarily constructs it; a business-input `XxxBuilder#build(...)` is not automatically exempt
 - `convertToXxx` and `mapToXxx` name a concrete target shape and use `To`, not `2`
-- `transform` and `normalize` name the actual transformation, canonical form, or policy; adding only a broad subject is insufficient when the action remains unknown
+- `transform` names the actual transformation or target form; adding only a broad subject is insufficient when the action remains unknown
 - boolean decisions prefer `is`, `has`, `can`, or `should`; throwing validation names the checked object or contract, such as `validateRequestContract`
 - mutation and orchestration names identify their target and must not disguise persistence, remote calls, transactions, compensation, or degradation as ordinary calculation
 - a shape or quantity suffix does not make a name specific: `saveBatch`, `buildData`, and `processList` remain unclear
+
+## Avoid Normalize
+
+Do not introduce application-defined identifiers based on `normalize`, `normalized`, or `normalizer`. These words claim that a value becomes normal without revealing the rule, changed fields, defaults, ordering, filtering, or resulting state.
+
+Name the observable operation or result instead:
+
+```text
+normalizeSystemContext -> fillMissingSystemIdentity
+normalizeHeaderNames   -> convertHeaderNamesToLowerCase
+normalizeCodes         -> trimAndDeduplicateCodes
+normalizePath          -> removeDuplicatePathSeparators
+normalizedConfig       -> configWithResolvedDefaults
+```
+
+Do not merely replace `normalize` with `standardize`, `canonicalize`, `sanitize`, `adjust`, or `process`; those words require the same concrete operation or named contract. Retain normalization terminology only when a framework or external signature requires it, or when a named technical standard defines normalization as the actual operation, such as Unicode NFC or URI normalization. Calls to third-party APIs keep their published names.
+
+Report ambiguous normalization vocabulary as `P2` when it hides defaults, security filtering, compatibility behavior, state mutation, or another caller-relevant contract; otherwise use `P3` for local understanding cost.
 
 Typical corrections include:
 
 ```text
 OutboundRequestUrlBuilder#build(config, request) -> buildOutboundRequestUrl
 saveBatch                                      -> saveApiConfigChanges
-normalizeSystemContext                        -> name the actual action, such as fillMissingSystemIdentity
 convert                                        -> convertToApiUpdateBO
 map                                            -> mapToResponse
 ```
