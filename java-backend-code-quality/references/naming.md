@@ -51,6 +51,38 @@ Do not merely replace `normalize` with `standardize`, `canonicalize`, `sanitize`
 
 Report ambiguous normalization vocabulary as `P2` when it hides defaults, security filtering, compatibility behavior, state mutation, or another caller-relevant contract; otherwise use `P3` for local understanding cost.
 
+## State And Collection Names
+
+State suffixes and prefixes are contracts, not generic labels. Use `candidate` only while an item belongs to a deliberately broad set and still awaits an explicit selection rule. Include the subject, scope, and container, such as `routeCandidateList`; do not use bare `candidates`. Replace it when the value is actually a condition builder, an already-filtered result, or an ordinary loop item:
+
+```text
+candidates -> routeConditions   // lambda parameter that builds route predicates
+schemaCandidates -> activeSchemaList   // query already returned active schemas
+for (Schema schemaCandidate : activeSchemaList) -> for (Schema schema : activeSchemaList)
+```
+
+Application-internal collection variables include their concrete container suffix so later uses remain understandable without returning to the declaration:
+
+- `List<T>` uses `...List`, such as `requestedAppList`
+- `Set<T>` uses `...Set`, such as `requestedAppCodeSet`
+- `Map<K, V>` and `Map<K, Collection<V>>` use `...Map`
+
+The suffix does not replace semantic naming. Put the subject, established state or source, and map key relationship before it; `dataList`, `itemSet`, and `appMap` remain insufficient. Do not add a container suffix to a serialized field, public API contract, framework signature, or third-party identifier when renaming it would alter compatibility.
+
+Names should also reveal collection cardinality and lookup state. For an index-style map:
+
+- use a singular value noun for one value per key: `Map<Code, Schema> activeSchemaByCodeMap`
+- use a plural value noun only when each key maps to multiple values: `Map<Code, List<Schema>> schemasByCodeMap`
+- include meaningful state such as `active`, `validated`, `pending`, or `latest` only after the code establishes it
+
+When building an index with `put`, `putIfAbsent`, `Collectors.toMap`, or similar operations, inspect the duplicate-key contract. Duplicates must be impossible by an enforced invariant, rejected, grouped, or resolved by an explicit deterministic rule. If first, last, latest, or highest-priority selection is intentional, make the ordering stable and expose that choice in the name or adjacent intent comment; a neutral `valueByKeyMap` name must not hide arbitrary collision resolution.
+
+When the same query result is subsequently looked up two or more times by one stable business key and the relationship is one value per key, prefer constructing one named map over repeated list scans or a trivial `findXxxByKey` helper. This exposes the access contract at each `get` call and keeps the lookup logic local. Do not convert mechanically when there is only one lookup, encounter order matters, duplicates are meaningful, or the code naturally consumes every element once. `stream().collect(...)` is not required; choose the clearest construction and make duplicate-key behavior deliberate.
+
+For example, a query for several applications followed by repeated `appCode` lookups should normally produce `appByCodeMap`. Before collecting, verify that `appCode` is unique; otherwise reject duplicates, group them, or apply an explicit stable selection rule rather than silently keeping an arbitrary value.
+
+Report a hidden or nondeterministic selection policy as `P2`. Use `P3` when the data contract is sound and only the state, role, or cardinality is unclear from the identifier.
+
 Typical corrections include:
 
 ```text

@@ -29,7 +29,7 @@ Unless fixes are requested, report without editing. Lead with severity, file, li
 
 Always inspect caller-visible correctness, names, comments, exceptions, method design, formatting, and tests. Load only references whose trigger applies:
 
-- Read [references/naming.md](references/naming.md) for generic vocabulary, enum lookups, renames, or unclear call-site responsibility, not otherwise clear new identifiers
+- Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, or unclear call-site responsibility, not otherwise clear new identifiers
 - Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) for multi-stage or cross-store behavior, transactions, remote or asynchronous work, retries, caches, compensation, locks, resources, or non-obvious failure policy
 - Read [references/checker.md](references/checker.md) for `--base`, `--line-range`, `--exclude`, unclear scope, checker errors, or exact CLI and rule behavior; run ordinary worktree and explicit-path checks directly
 
@@ -53,6 +53,8 @@ From only the receiver, method name, arguments, return type, and result use, a c
 Generic construction, conversion, lookup, validation, mutation, and orchestration verbs need a concrete subject, product, rule, or outcome; shape words such as `Batch`, `List`, `Data`, `Info`, `Context`, `Item`, and `Result` are insufficient. Names must expose persistence, remote I/O, transactions, compensation, fallback, and absence behavior.
 
 Do not introduce application-defined `normalize`, `normalized`, or `normalizer` identifiers. Name the exact action or result; substituting vague words such as `standardize`, `canonicalize`, `sanitize`, `adjust`, or `process` remains invalid. Keep normalization terminology only for required framework or external signatures and named standards such as Unicode NFC or URI normalization.
+
+Use state words only for values actually in that state: `candidate` requires later selection and a named subject. Application-internal collection variables end in `List`, `Set`, or `Map`; put subject, state, source, and key relationship before the suffix (`requestedAppList`, `appByCodeMap`, `appsByStatusMap`), preserve singular or plural value cardinality, and do not rename external contracts solely for a suffix. If one query result is looked up at least twice by the same stable key with one value per key, build one map instead of repeated scans or a trivial helper. Retain the collection when order, duplicates, or one traversal matters; duplicate keys must be impossible, rejected, grouped, or resolved deterministically.
 
 Enum lookups must follow repository convention and expose the result, key, and missing-value contract; bare `find` is insufficient.
 
