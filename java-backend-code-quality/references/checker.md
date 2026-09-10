@@ -26,7 +26,7 @@ The checker is read-only. It must not infer authorship by scanning the whole pro
 - `STYLE-GUARD-001`: at least three terminating method-entry guards lack one leading cluster comment
 - `STYLE-INTENT-001`: a method with at least 15 non-blank code lines and three control-flow nodes has no top-level stage intent comment
 
-The guard rule permits pure local-value extraction between guards. JavaDoc, logs, catch-local comments, and nested comments do not satisfy the top-level intent rule. The checker conservatively detects complete absence only; it cannot judge comment quality, stage coverage, whether adjacent calls belong to separate processor stages, reference counts, whether a small helper with one or two call sites should be inlined, retries, suppression, compensation, degradation, or semantic naming.
+The guard rule permits pure local-value extraction between guards. JavaDoc, logs, catch-local comments, and nested comments do not satisfy the top-level intent rule. The checker conservatively detects complete absence only; it cannot judge comment quality, stage coverage, whether adjacent calls belong to separate processor stages, or whether a private helper should be inlined at any reference count. It also cannot judge error-message audience or clarity, error-code alignment, diagnostic sufficiency, or sensitive-information disclosure. Reference counts, call-site readability, retries, suppression, compensation, degradation, and other semantic decisions require skill review.
 
 ## Exit Codes
 
