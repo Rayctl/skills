@@ -24,6 +24,16 @@ Use `--remote <name> --branch <name>` together only when the task or user explic
 
 Skip this workflow for non-Git directories, ordinary explanatory questions, and read-only analysis explicitly pinned to a commit, PR, tag, or immutable ref.
 
+## Report Every Result
+
+After every `check` or `update` invocation, give the user a visible result before continuing or stopping. Command or tool output alone does not satisfy this requirement because the user may not see it. Use the user's language.
+
+- For `CURRENT`, report the repository, current branch, remote target, `CURRENT`, and the first seven characters of the shared commit. Keep this to one concise sentence.
+- For `AHEAD`, report the repository, current branch, remote target, `AHEAD`, and the first seven characters of both local and remote commits; explicitly say that the local branch contains the remote tip and has additional commits.
+- For `UPDATED`, report the repository, current branch, remote target, `UPDATED`, and the first seven characters of the new local commit.
+- For a successful status, mention the dirty worktree only when `dirty: true`.
+- For every unsuccessful status or command error, report the emitted status, or `ERROR` when no status was emitted, plus the repository, branch, target, local and remote commits when available, dirty state when known, the reason, and the next required action. Preserve the existing stop and approval behavior.
+
 ## Update Only After Approval
 
 An instruction to plan or change code does not authorize a repository update. Run `update` only after the user explicitly approves updating the reported repository and remote branch in the current conversation:

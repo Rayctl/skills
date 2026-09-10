@@ -1,7 +1,7 @@
 interface:
   display_name: "Git Latest Code Check"
   short_description: "Check remote Git state before code work"
-  default_prompt: "Use $git-latest-code-check to verify this Git worktree before planning or changing code."
+  default_prompt: "Use $git-latest-code-check to verify this Git worktree before planning or changing code, and visibly report the result whether it succeeds or fails."
 
 policy:
   allow_implicit_invocation: true
