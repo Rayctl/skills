@@ -40,6 +40,14 @@ Lead caller messages with the business subject and action. Include a field name,
 
 Before changing an established message or splitting an error, inspect error-code compatibility, response contracts, client parsing, localization, and tests. Improve the message without silently breaking a public contract.
 
+## Message Visibility At The Failure Site
+
+Keep a fixed caller-visible message literal at each throw or error-construction site when a private constant exists only to reuse that wording. The local branch should expose the guard, stable error category, exact message, retained cause, and recovery advice together so a reader can verify that they agree without following another symbol.
+
+Do not retain a message constant merely because it has multiple uses, a long descriptive name, or keeps wording centralized. Reuse of one message also does not prove that all branches have the same cause or recovery action; apply the alignment check above at every use and split the message when those contracts differ.
+
+This rule does not apply to stable error-code enum members, protocol or persistence identifiers, framework-required compile-time values, localization keys, externally governed public identifiers, or established structured message catalogs. Follow a repository-mandated localization or error-catalog mechanism when it owns the caller contract.
+
 ```java
 // Different causes and recovery actions must remain distinct
 if (!Objects.equals(request.getDefinitionVersion(), currentDefinitionVersion)) {

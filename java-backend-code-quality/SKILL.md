@@ -1,11 +1,11 @@
 ---
 name: java-backend-code-quality
-description: Create, modify, or review Java backend code using change-scoped quality rules, with deeper contract and lifecycle checks for non-trivial logic; excludes formal code-reviewer and commit-gate workflows.
+description: Create, modify, or review Java backend code using change-scoped quality rules, with deeper contract and lifecycle checks for non-trivial logic.
 ---
 
 # Java Backend Code Quality
 
-Use for Java backend creation, modification, or review. Apply the core gate to every changed production and test source, then load only the references triggered by the code.
+Use for Java backend creation, modification, or review. Apply the core rules to every changed production and test source, then load only the references triggered by the code.
 
 ## Scope And Authority
 
@@ -13,7 +13,7 @@ Repository instructions and explicit user rules take precedence.
 
 Limit work and findings to current-task changes. Prefer an explicit file, line, commit, or branch; otherwise use staged, unstaged, and untracked Java changes. For a clean worktree, use an explicit baseline or upstream merge-base; ask if neither exists. Ignore unrelated historical, generated, vendored, and third-party code. Read unchanged collaborators as context and report them only when the change activates or regresses their behavior.
 
-A private helper enters scope when the change creates or edits it, or when a changed call site calls it. Inspect an unchanged declaration as context and report a needless abstraction activated by the changed call site. Do not perform formal `code-reviewer` or commit-gate workflows or issue their approval markers.
+A private helper enters scope when the change creates or edits it, or when a changed call site calls it. A private field or constant enters scope only when the change creates or edits it as a compact reuse abstraction, or a changed use site relies on it in that role. Inspect unchanged declarations as context and report a needless abstraction activated by the changed use site.
 
 ## Modes And Routing
 
@@ -21,16 +21,16 @@ In implementation mode, identify non-trivial stages, inputs and outputs, ownersh
 
 In review mode, report without editing unless fixes are requested. Lead with severity, file, line, evidence, impact, and the smallest correction; connect preferences to concrete behavioral or maintenance cost.
 
-Always apply the core gate below. Load a reference only when its trigger matches:
+Always apply the core rules below. Load a reference only when its trigger matches:
 
-- Read [references/method-design.md](references/method-design.md) when code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper, introduces deferred execution, or raises a method-granularity question
+- Read [references/method-design.md](references/method-design.md) when code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper; extracts compact logic or literals into a private field or constant; introduces deferred execution; or raises an abstraction-granularity question
 - Read [references/comments-and-javadoc.md](references/comments-and-javadoc.md) when code adds or changes a class, method, JavaDoc, comment, guard cluster, or non-trivial method body
 - Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, `normalize` vocabulary, or unclear call-site responsibility; do not load it for otherwise clear identifiers
-- Read [references/exception-communication.md](references/exception-communication.md) when code throws, converts, returns, logs, or documents a failure, or changes a `catch` or `finally` path
+- Read [references/exception-communication.md](references/exception-communication.md) when code throws, converts, returns, logs, or documents a failure; adds or changes a caller-visible message or message constant; or changes a `catch` or `finally` path
 - Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) for multi-stage or cross-store behavior, transactions, remote or asynchronous work, retries, caches, compensation, locks, resources, or non-obvious failure policy
 - Read [references/checker.md](references/checker.md) for `--base`, `--line-range`, `--exclude`, unclear scope, checker errors, or exact CLI and rule behavior; run ordinary worktree and explicit-path checks directly
 
-## Core Quality Gate
+## Core Quality Rules
 
 - preserve caller-visible null, empty, absent, disabled, default, and exception semantics
 - assign one clear owner for validation, state transitions, persistence, cleanup, and delayed work; keep ordering that protects compatibility, idempotency, security, transactions, and failure isolation
@@ -38,7 +38,7 @@ Always apply the core gate below. Load a reference only when its trigger matches
 - make the receiver, method name, arguments, return type, and result use reveal the concrete subject, action, result, and caller-relevant side effects. Do not introduce application-defined `normalize` vocabulary, generic shape-only names, ambiguous enum lookups, or collection names that hide type, cardinality, state, key relation, or duplicate policy
 - require JavaDoc for every public method and every application-defined method that owns an independent business action or processing stage, regardless of visibility, body length, linearity, or a clear name. Exempt only inherited or generated contracts and private helpers with no independent semantics
 - add top-level intent comments when names and types do not reveal a stage's reason, precondition, consumer, order, compatibility rule, or failure consequence. Treat adjacent calls as separate stages when responsibility, handoff, side effects, ordering, or failure boundaries differ
-- run the inline-substitution test for every in-scope private helper. Prefer compact logic at the call site when it exposes useful inputs, field sources, null handling, the real delegate, or fixed error details; call count, DRY, JavaDoc, or a clear helper name never proves extraction is better
+- compare every in-scope private helper and every private field or constant used only for compact reuse with the same logic or value written directly at its use sites. Prefer the direct form when it exposes useful inputs, field sources, null handling, the real delegate, or caller-visible error text; call count, DRY, JavaDoc, a long constant name, or a clear helper name never proves extraction is better
 - treat changed `try-catch-finally` code as a behavioral boundary. Immediately before fallback, degradation, retry, suppression, continuation, compensation, or exception conversion, comment what failed, what happens next, and which guarantee is preserved or skipped; transparent direct rethrows are exempt
 - ensure every caller-visible error is truthful for every condition reaching it. When failure reasons differ in error category or effective recovery action, preserve the reason and split the branch, error, or typed failure instead of polishing one combined message
 - separate caller messages, internal diagnostics, and control-flow comments. Align error code, exception type, message, and actual behavior; never expose raw downstream errors or sensitive implementation details
