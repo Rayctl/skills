@@ -12,6 +12,10 @@ Treat failure communication as three distinct contracts:
 
 Do not ask one message to satisfy all three. A clear `catch` comment does not repair a vague caller message, and a detailed log does not make it safe to return technical details to a caller.
 
+## Exception Boundaries
+
+Treat every changed `try-catch-finally` as a behavioral boundary. Catch only the failures the branch can handle, preserve unexpected exceptions and caller-relevant error categories, and prevent fallback, cleanup, or recovery failures from masking the original cause. Remove context-free catch-log-rethrow blocks and assign diagnostic logging to one owning layer.
+
 ## Caller-Visible Errors
 
 Use the project's established language and domain terms. A caller-visible error should identify the failed subject or action, give the most specific cause the current boundary can state truthfully, and include a next step only when the caller can actually take one.
@@ -23,6 +27,33 @@ Keep the error code, exception type, HTTP or RPC status, and human-readable mess
 Never expose stack traces, Java class or method names, SQL, storage structure, internal URLs, credentials, tokens, secret or personal data, sensitive configuration, or an unsanitized downstream `exception.getMessage()`. Do not invent a trace identifier field, but include the project's existing safe correlation identifier in an outer-boundary fallback when available.
 
 An outermost handler for an unexpected, unclassified failure may return a safe generic message such as `Service is temporarily unavailable; try again later` when it also returns the established stable error code and records the full internal diagnosis. Known validation, state, permission, dependency, and persistence failures still require their specific caller contract.
+
+## Cause And Recovery Alignment
+
+Trace every condition that can reach a caller-visible error. The subject, stated cause, error category, and suggested recovery must be true for all of them.
+
+When distinguishable causes have different error categories or effective recovery actions, retain that distinction and use separate guards, errors, or a typed failure reason. Do not collapse them behind a compound condition, boolean helper, or shared exception factory merely to reuse wording. Sharing one error is acceptable only when every path has the same caller-relevant meaning, category, and recovery.
+
+If the current boundary genuinely cannot distinguish the causes, describe the combined contract truthfully and preserve the underlying reason for internal diagnosis. Do not recommend refresh, retry, resubmission, or reconfiguration when that action resolves only some paths. Recovery advice must correspond to a recovery mechanism the code or product actually provides.
+
+Lead caller messages with the business subject and action. Include a field name, protocol term, or other technical identifier only when the intended API consumer, support operator, or developer can use it as a useful diagnostic anchor. Do not impose one technical format on end-user messages.
+
+Before changing an established message or splitting an error, inspect error-code compatibility, response contracts, client parsing, localization, and tests. Improve the message without silently breaking a public contract.
+
+```java
+// Different causes and recovery actions must remain distinct
+if (!Objects.equals(request.getDefinitionVersion(), currentDefinitionVersion)) {
+    throw new BusinessException(
+            ErrorCode.STATE_CONFLICT,
+            "Field definitions have changed; refresh and configure them again");
+}
+
+if (field.isGroup() && field.hasValueRule()) {
+    throw new BusinessException(
+            ErrorCode.INVALID_ARGUMENT,
+            "Group fields cannot define a value rule; remove the rule and save again");
+}
+```
 
 ```java
 // Too vague for a known validation failure
@@ -56,10 +87,10 @@ catch (StorageException exception) {
 
 ## Control-Flow Comments
 
-Keep the `SKILL.md` catch-comment rule independent from message quality. When a catch falls back, retries, suppresses, continues, compensates, or converts an exception, its local comment names the failed operation, the next path, and the guarantee skipped or preserved. Logs and exception messages describe audiences and diagnosis; they do not explain hidden control-flow policy by themselves.
+Keep the `SKILL.md` catch-comment rule independent from message quality. When a catch falls back, retries, suppresses, continues, compensates, or converts an exception, its local comment names the failed operation, the next path, and the guarantee skipped or preserved. Logs and exception messages describe audiences and diagnosis; they do not explain hidden control-flow policy by themselves. Transparent direct rethrows are exempt; do not require comments for unchanged catch behavior or every return mechanically.
 
 ## Review Severity
 
 - use the impact-based `P0` or `P1` level for actual sensitive-data exposure, security failure, or broken public contracts
-- use `P2` for unsafe disclosure risk, mismatched error categories, lost causes, misleading recovery advice, or insufficient diagnostics that can block production investigation
+- use `P2` for unsafe disclosure risk, mismatched error categories, collapsed distinguishable causes, lost causes, ineffective or misleading recovery advice, or insufficient diagnostics that can block production investigation
 - use `P3` when the meaning remains correct and safe but wording creates only local reading or support cost
