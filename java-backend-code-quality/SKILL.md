@@ -17,13 +17,14 @@ A private helper enters scope when the change creates or edits it, or when a cha
 
 ## Modes And Routing
 
-In implementation mode, identify non-trivial stages, inputs and outputs, ownership, ordering, and failure consequences before coding. Apply the rules while writing code and recheck changed ranges before finishing.
+In implementation mode, identify non-trivial stages, inputs and outputs, ownership, ordering, and failure consequences before coding. Before editing production behavior, evaluate current variation using the structure-choice triggers below. If a new design pattern has material current benefit, present the simple and structured options and pause for the user's choice; otherwise continue without announcing the check. Apply this advisory to shared test infrastructure only when it has the same variation signals. Apply the quality rules while writing code and recheck changed ranges before finishing.
 
-In review mode, report without editing unless fixes are requested. Lead with severity, file, line, evidence, impact, and the smallest correction; connect preferences to concrete behavioral or maintenance cost.
+In review mode, report without editing unless fixes are requested. Lead with severity, file, line, evidence, impact, and the smallest correction; connect preferences to concrete behavioral or maintenance cost. Do not run the optional structure-choice advisory in review-only work.
 
 Always apply the core rules below. Load a reference only when its trigger matches:
 
 - Read [references/method-design.md](references/method-design.md) when code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper; extracts compact logic or literals into a private field or constant; introduces deferred execution; or raises an abstraction-granularity question
+- Read [references/structure-choice.md](references/structure-choice.md) only in implementation mode when the task adds another implementation of one responsibility, extends type/state/protocol/provider branching, repeats one flow with varying steps, scatters object creation, or selects behavior from configuration or runtime state
 - Read [references/comments-and-javadoc.md](references/comments-and-javadoc.md) when code adds or changes a class, method, JavaDoc, comment, guard cluster, or non-trivial method body
 - Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, `normalize` vocabulary, or unclear call-site responsibility; do not load it for otherwise clear identifiers
 - Read [references/exception-communication.md](references/exception-communication.md) when code throws, converts, returns, logs, or documents a failure; adds or changes a caller-visible message or message constant; or changes a `catch` or `finally` path
