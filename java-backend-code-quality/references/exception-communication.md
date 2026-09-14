@@ -26,6 +26,8 @@ Keep the error code, exception type, HTTP or RPC status, and human-readable mess
 
 Never expose stack traces, Java class or method names, SQL, storage structure, internal URLs, credentials, tokens, secret or personal data, sensitive configuration, or an unsanitized downstream `exception.getMessage()`. Do not invent a trace identifier field, but include the project's existing safe correlation identifier in an outer-boundary fallback when available.
 
+Do not treat a structured business error returned by a successful remote transport as interchangeable with `exception.getMessage()`. When changed code handles HTTP, Feign, RPC, or external SDK failures, read [remote-calls.md](remote-calls.md) and preserve the downstream business reason through the repository's caller or diagnostic contract.
+
 An outermost handler for an unexpected, unclassified failure may return a safe generic message such as `Service is temporarily unavailable; try again later` when it also returns the established stable error code and records the full internal diagnosis. Known validation, state, permission, dependency, and persistence failures still require their specific caller contract.
 
 ## Cause And Recovery Alignment
@@ -79,7 +81,7 @@ At the layer that owns failure reporting, record the failed operation or stage, 
 
 Preserve the original `cause` when converting an internal exception and the project exception type supports it. If the public exception contract cannot retain the cause, log it once at the diagnostic owner before conversion. Avoid catch-log-rethrow at every layer because duplicated logs obscure ownership and incident counts.
 
-Do not log secrets or broad request objects merely to gain context. Use explicit safe fields, and follow repository masking and privacy rules for personal or regulated data.
+Do not invent a logging or disclosure policy for remote payloads, credentials, or replayable values. Follow the repository's established policy; if it is unclear, use [remote-calls.md](remote-calls.md) to present the available logging scopes and wait for the user's choice. Prefer explicit diagnostic fields and recommend against raw credential logging, but do not silently substitute that recommendation for a repository or user decision.
 
 ```java
 catch (StorageException exception) {

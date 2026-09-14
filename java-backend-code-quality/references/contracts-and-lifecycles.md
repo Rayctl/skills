@@ -1,6 +1,6 @@
 # Contracts And Lifecycles
 
-Read this reference only when changed Java backend code coordinates multiple stages, side effects, resources, transactions, remote calls, asynchronous work, retries, caches, compensation, concurrency-sensitive writes, or non-obvious caller-visible failure policies. Return to `SKILL.md` without applying this reference when the change is a trivial accessor, data holder, pure predicate, or mechanical edit with none of those concerns.
+Read this reference only when changed Java backend code coordinates multiple stages, side effects, resources, transactions, asynchronous work, retries, caches, compensation, concurrency-sensitive writes, or non-obvious caller-visible failure policies. For remote calls, use this reference only when those lifecycle concerns also apply; logging and downstream error preservation belong to [remote-calls.md](remote-calls.md). Return to `SKILL.md` without applying this reference when the change is a trivial accessor, data holder, pure predicate, or mechanical edit with none of those concerns.
 
 ## Reconstruct The Behavior
 

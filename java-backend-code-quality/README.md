@@ -13,6 +13,7 @@
 - 对短私有方法和仅为复用而抽出的私有常量或字段，尝试把内容直接写回使用位置，并保留更容易读懂的写法；调用次数和“减少重复”不能单独证明拆分合理
 - 改变控制流的 `catch` 在行为发生前说明后续路径和保留或跳过的保证
 - 用户异常提示、错误类别和真实恢复动作保持一致
+- 第三方调用区分业务拒绝和技术失败，保留可定位的第三方错误信息，并按仓库约定决定日志范围
 - Java 注释结尾不使用中文或英文句号，方法声明之间只保留一行空行
 
 检查范围默认限于当前任务的暂存、未暂存和未跟踪 Java 变更，也可以指定文件、行范围、提交或对比分支。不会报告未修改的历史代码、生成代码和第三方代码，但理解当前改动时可以读取它们。
@@ -28,7 +29,8 @@
 | [comments-and-javadoc.md](references/comments-and-javadoc.md) | 新增或修改类、方法、JavaDoc、注释、入口校验或包含多步处理的方法体 |
 | [naming.md](references/naming.md) | 名称过于宽泛、集合和状态命名、枚举查询、`normalize`、使用位置看不出职责 |
 | [exception-communication.md](references/exception-communication.md) | 异常抛出或转换、用户可见文案及其常量、错误返回、失败日志、`catch` 或 `finally` |
-| [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) | 事务、跨存储、远程或异步调用、缓存、重试、补偿、锁和资源生命周期 |
+| [remote-calls.md](references/remote-calls.md) | HTTP、Feign、RPC、外部 SDK、请求响应日志、第三方错误解析或映射 |
+| [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) | 事务、跨存储、异步调用、缓存、重试、补偿、锁和资源生命周期 |
 | [control-flow.md](references/control-flow.md) | 三元表达式、`if`/`else`/循环的大括号，以及较长表达式的换行 |
 | [checker.md](references/checker.md) | 基线、行范围、排除路径、范围歧义、CLI 错误和规则编号 |
 
@@ -143,6 +145,25 @@ if (field.isGroup() && field.hasValueRule()) {
 
 只有当刷新、重试、重新保存或重新配置确实能解决当前原因时，才能给出对应建议。无法区分原因时使用真实的组合描述，不提供只适用于部分路径的动作，并在内部保留可诊断信息。用户提示优先使用业务名称；技术标识只在目标受众能据此定位时作为辅助锚点。
 
+### 第三方调用日志和错误
+
+接入第三方接口前，先查看仓库是否已有客户端拦截器、统一 Wrapper、日志切面、脱敏工具和错误映射。不能只因为控制台能看到 HTTP DEBUG 日志，就认为生产环境已经具有安全且完整的调用日志。
+
+下面的处理同时丢失了第三方正常业务响应中的具体原因：
+
+```java
+if (response.isError()) {
+    Loggers.BIZ.warn("carrier.order,errorCategory:{}", "BUSINESS_REJECTED");
+    throw new BusinessException("承运商下单失败");
+}
+```
+
+第三方业务错误至少要在调用方错误或内部诊断中的一处保留错误码、错误信息、请求 ID 等可定位内容。是否返回原始第三方文案，或者映射为本地错误，只能根据仓库已有 Wrapper 或映射表、本地接口契约、第三方明确错误码语义、调用方测试或用户确认来决定，不能根据文案相似度临时猜测。
+
+完整 URL、请求响应体、文件和鉴权信息也不做统一禁止或统一要求。先检查仓库日志规范、脱敏和访问控制、运行环境、报文大小以及实际排障收益；规则不明确时，说明具体字段和风险，给出关键字段、脱敏完整报文、原始完整报文或仅失败记录等方案，等待用户选择。应优先建议不记录凭据和可重放信息原值，但不能把建议冒充成仓库规则。
+
+业务拒绝、HTTP 非成功、响应无法解析和网络异常需要分别处理。技术异常包装时保留 `cause`，或由唯一负责诊断的层记录一次完整异常，避免每层都记录后再抛出。
+
 ### 三元表达式、控制流与换行
 
 三元表达式只保留简单的纯值选择，例如：
@@ -223,6 +244,7 @@ java-backend-code-quality/
 |   |-- exception-communication.md
 |   |-- method-design.md
 |   |-- naming.md
+|   |-- remote-calls.md
 |   `-- structure-choice.md
 |-- scripts/
 |   `-- check_java_backend_style.py
@@ -257,7 +279,7 @@ py -3 "$env:USERPROFILE\.codex\skills\java-backend-code-quality\scripts\check_ja
 - `STYLE-INTENT-001`：明显复杂的方法中，主要处理阶段前完全没有意图注释
 - `STYLE-BRACE-001`：`if`、`else`、`for`、`while` 或 `do while` 的执行体缺少大括号
 
-检查器不会判断自然语言是否清楚、处理阶段是否说明完整、三元表达式是否应该改写、私有方法或复用型异常文案常量是否应该写回使用位置、当前变化是否值得采用设计模式、错误原因是否应拆分、恢复动作是否有效、错误码是否匹配或是否泄露敏感信息。这些问题由 Skill 结合代码含义检查。
+检查器不会判断自然语言是否清楚、处理阶段是否说明完整、三元表达式是否应该改写、私有方法或复用型异常文案常量是否应该写回使用位置、当前变化是否值得采用设计模式、错误原因是否应拆分、恢复动作是否有效、错误码是否匹配或是否泄露敏感信息。第三方调用的日志覆盖、完整报文策略、失败分类、错误映射依据和诊断信息保留也由 Skill 结合代码含义检查。
 
 ## 验证
 
