@@ -17,10 +17,13 @@ py -3 "<skill-directory>\scripts\git_latest_code.py" check --repo "<repository>"
 
 Use `--remote <name> --branch <name>` together only when the task or user explicitly identifies the intended remote branch and the current branch has no usable upstream. Never infer and persist an upstream.
 
-- Continue when the status is `CURRENT` or `AHEAD`
-- Stop before finalizing a code plan or editing when the command reports `REMOTE_DIFFERS`, `BEHIND`, `DIVERGED`, `NO_UPSTREAM`, `DETACHED`, or any error
-- Tell the user the repository, current branch, intended remote branch, local/remote commits when available, dirty state, and why work stopped
-- Do not rerun during the same task unless the repository or branch changes, the user requests it, or an approved update succeeds
+Always run the read-only check even when the worktree already has staged, tracked, or untracked changes. Interpret the result together with the emitted `dirty` field:
+
+- When `dirty: false`, continue only for `CURRENT` or `AHEAD`. Stop before finalizing a code plan or editing for `REMOTE_DIFFERS`, `BEHIND`, `DIVERGED`, `NO_UPSTREAM`, `DETACHED`, `REMOTE_UNAVAILABLE`, or any command error, then explain the state and the required action.
+- When `dirty: true`, continue for `CURRENT` or `AHEAD` and mention the dirty state. Treat `REMOTE_DIFFERS`, `BEHIND`, `DIVERGED`, `NO_UPSTREAM`, `REMOTE_UNAVAILABLE`, and remote-read errors as visible non-blocking warnings: do not request or run an update, and continue only work related to the changes already present in that worktree.
+- `DETACHED`, invalid repository or target input, and local Git failures remain stopping conditions even when the worktree is dirty because the local work context cannot be established safely.
+- Before continuing in a dirty worktree, confirm from the task and relevant local diff that the requested work belongs with the existing changes. If it is unrelated or cannot be separated safely, stop and require a clean worktree instead of mixing the work.
+- Do not rerun during the same task unless the repository or branch changes, the user requests it, or an approved update succeeds.
 
 Skip this workflow without mentioning the skill when the conversation has no associated Git repository, no repository path was explicitly provided, or the candidate directory is not a Git worktree. Also skip ordinary explanatory questions and read-only analysis explicitly pinned to a commit, PR, tag, or immutable ref.
 
@@ -32,11 +35,12 @@ After every `check` or `update` invocation, give the user a visible result befor
 - For `AHEAD`, report the repository, current branch, remote target, `AHEAD`, and the first seven characters of both local and remote commits; explicitly say that the local branch contains the remote tip and has additional commits.
 - For `UPDATED`, report the repository, current branch, remote target, `UPDATED`, and the first seven characters of the new local commit.
 - For a successful status, mention the dirty worktree only when `dirty: true`.
-- For every unsuccessful status or command error, report the emitted status, or `ERROR` when no status was emitted, plus the repository, branch, target, local and remote commits when available, dirty state when known, the reason, and the next required action. Preserve the existing stop and approval behavior.
+- For every unsuccessful status or command error, report the emitted status, or `ERROR` when no status was emitted, plus the repository, branch, target, local and remote commits when available, dirty state when known, and the reason.
+- For a dirty-worktree remote warning, explicitly say that remote freshness was not established, the existing related work may continue, and `update` is prohibited while the worktree is dirty. For all other failures, state the next required action and preserve the stop and approval boundary.
 
 ## Update Only After Approval
 
-An instruction to plan or change code does not authorize a repository update. Run `update` only after the user explicitly approves updating the reported repository and remote branch in the current conversation:
+An instruction to plan or change code does not authorize a repository update. Never invoke `update` after a check reports `dirty: true`, even if the user approves; explain that local changes must first be handled by the user in a separate workflow. For a clean worktree, run `update` only after the user explicitly approves updating the reported repository and remote branch in the current conversation:
 
 ```text
 py -3 "<skill-directory>\scripts\git_latest_code.py" update --repo "<repository>"
@@ -50,4 +54,4 @@ After a successful update, discard conclusions based on the previous checkout, r
 
 ## Script Contract
 
-Read [README.md](README.md) only when exact statuses, exit codes, installation, troubleshooting, or direct CLI use are needed. The script uses `git ls-remote` in `check` mode and does not fetch or modify repository state. Exit `0` means the selected remote tip is present in local history or an update succeeded, `1` means user action is required, and `2` means input, Git, network, or environment failure.
+Read [README.md](README.md) only when exact statuses, exit codes, installation, troubleshooting, or direct CLI use are needed. The script uses `git ls-remote` in `check` mode and does not fetch or modify repository state. Exit `0` means the selected remote tip is present in local history or an update succeeded, `1` means the CLI found a state that normally requires action, and `2` means input, Git, network, or environment failure. For `check`, apply the dirty-worktree policy above instead of treating a nonzero exit code by itself as a mandatory stop.
