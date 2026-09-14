@@ -79,9 +79,12 @@ def run_git(
     arguments: Sequence[str],
     *,
     check: bool = True,
+    allow_lazy_fetch: bool = False,
 ) -> GitResult:
     environment = os.environ.copy()
     environment["GIT_OPTIONAL_LOCKS"] = "0"
+    if not allow_lazy_fetch:
+        environment["GIT_NO_LAZY_FETCH"] = "1"
     try:
         completed = subprocess.run(
             ["git", *arguments],
@@ -434,6 +437,7 @@ def update_repository(
             repository,
             ["merge", "--ff-only", target.tracking_ref],
             check=False,
+            allow_lazy_fetch=True,
         )
         if merge_result.returncode != 0:
             detail = last_output_line(merge_result) or "fast-forward merge failed"

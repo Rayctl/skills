@@ -50,10 +50,10 @@ Apply this section only when the user requests substantive code planning, creati
 
 Otherwise, identify a candidate directory only from the current working directory or the explicitly provided repository path. Confirm it with `git -C "<candidate>" rev-parse --is-inside-work-tree`. Do not search unrelated directories for a repository. If the command fails or does not return `true`, do not load, invoke, or mention the skill.
 
-If the command succeeds, use `$git-latest-code-check` once before relying on or modifying code in that Git worktree. If the selected remote branch differs or cannot be verified, stop and explain the state before requesting approval for any update. Apply language- or task-specific skills only after this check passes. Explicit user and repository instructions take precedence.
+If the command succeeds, explicitly read and follow `~/.codex/skills/git-latest-code-check/SKILL.md` as `$git-latest-code-check` once before relying on or modifying code in that Git worktree. Do not rely on implicit skill discovery for this step. If the selected remote branch differs or cannot be verified, stop and explain the state before requesting approval for any update. Apply language- or task-specific skills only after this check passes. Explicit user and repository instructions take precedence.
 ```
 
-`agents/openai.yaml` 已关闭隐式调用。日常 Git 仓库任务由上面的全局规则在预检通过后调用，也可以显式输入 `$git-latest-code-check`
+`agents/openai.yaml` 已关闭隐式调用。日常 Git 仓库任务由上面的全局规则在预检通过后从用户 Skill 目录显式读取，也可以在对话中显式输入 `$git-latest-code-check`
 
 ## 命令
 
@@ -92,6 +92,7 @@ py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_c
 | `DETACHED` | 当前处于 detached HEAD | 停止，不自动切换分支 |
 | `REMOTE_UNAVAILABLE` | 远端无法访问或目标分支不存在 | 停止并处理网络、凭据或分支配置 |
 | `FETCH_BLOCKED` | 远端获取被拒绝或远端历史发生改写 | 停止，不强制更新 |
+| `UPDATE_BLOCKED` | 获取成功，但安全快进或更新后校验无法完成 | 停止，不自动改用其他更新方式 |
 | `WORKTREE_CHANGED` | 获取远端期间当前分支或工作区发生变化 | 停止，不继续合并 |
 | `REMOTE_MOVED` | 更新期间远端再次变化 | 停止，不自动重试 |
 
@@ -101,7 +102,7 @@ py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_c
 
 ## 安全边界
 
-- `check` 只执行只读 Git 命令，并通过 `GIT_OPTIONAL_LOCKS=0` 禁止可选索引刷新
+- `check` 只执行只读 Git 命令，通过 `GIT_OPTIONAL_LOCKS=0` 禁止可选索引刷新，并通过 `GIT_NO_LAZY_FETCH=1` 禁止 partial clone 按需获取缺失对象
 - `update` 必须由用户针对当前仓库和分支明确授权
 - 更新要求工作区完全干净，包括未跟踪文件
 - 只允许获取指定远端分支和 `git merge --ff-only`

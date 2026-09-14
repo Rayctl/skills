@@ -70,6 +70,41 @@ class GitLatestCodeTests(unittest.TestCase):
         self.git(repository, "config", "user.name", "Skill Test")
         self.git(repository, "config", "user.email", "skill-test@example.com")
 
+    def test_run_git_disables_optional_writes_and_lazy_fetches(self) -> None:
+        completed = mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(
+            git_latest_code.subprocess,
+            "run",
+            return_value=completed,
+        ) as run:
+            git_latest_code.run_git(self.worktree, ["status"])
+
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual("0", environment["GIT_OPTIONAL_LOCKS"])
+        self.assertEqual("1", environment["GIT_NO_LAZY_FETCH"])
+
+    def test_run_git_preserves_lazy_fetch_policy_for_approved_write(self) -> None:
+        completed = mock.Mock(returncode=0, stdout="", stderr="")
+
+        with mock.patch.dict(
+            git_latest_code.os.environ,
+            {"GIT_NO_LAZY_FETCH": "caller-policy"},
+            clear=True,
+        ), mock.patch.object(
+            git_latest_code.subprocess,
+            "run",
+            return_value=completed,
+        ) as run:
+            git_latest_code.run_git(
+                self.worktree,
+                ["merge", "--ff-only", "refs/remotes/origin/main"],
+                allow_lazy_fetch=True,
+            )
+
+        environment = run.call_args.kwargs["env"]
+        self.assertEqual("caller-policy", environment["GIT_NO_LAZY_FETCH"])
+
     def run_tool(
         self,
         command: str,
