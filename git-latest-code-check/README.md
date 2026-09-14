@@ -8,6 +8,12 @@
 
 ```text
 任务开始
+  -> 仅在代码规划或修改任务中检查是否有关联仓库或明确路径
+  -> 没有候选目录：静默跳过，不运行 Git 命令或加载 Skill
+  -> 仅从当前工作目录或用户明确给出的路径确定候选目录
+  -> git rev-parse 预检
+  -> 非 Git：静默跳过，不加载 Skill
+  -> 已确认 Git worktree：调用 Skill
   -> 只读检查远端
   -> CURRENT / AHEAD：继续规划或编码
   -> 远端不同或无法确认：停止并提示
@@ -40,10 +46,14 @@ Copy-Item -Recurse -Force ".\git-latest-code-check" "$env:USERPROFILE\.codex\ski
 ```markdown
 ## Git Latest Code Check
 
-Use `$git-latest-code-check` once before substantive planning, creating, or modifying code in a Git repository. Run its read-only check before relying on repository code. If the selected remote branch differs or cannot be verified, stop and explain the state before requesting approval for any update. Apply language- or task-specific skills only after this check passes. Explicit user and repository instructions take precedence.
+Apply this section only when the user requests substantive code planning, creation, or modification. If the conversation has no associated repository and the user did not explicitly provide a repository path, stop applying this section without running Git commands and do not load, invoke, or mention `$git-latest-code-check`.
+
+Otherwise, identify a candidate directory only from the current working directory or the explicitly provided repository path. Confirm it with `git -C "<candidate>" rev-parse --is-inside-work-tree`. Do not search unrelated directories for a repository. If the command fails or does not return `true`, do not load, invoke, or mention the skill.
+
+If the command succeeds, use `$git-latest-code-check` once before relying on or modifying code in that Git worktree. If the selected remote branch differs or cannot be verified, stop and explain the state before requesting approval for any update. Apply language- or task-specific skills only after this check passes. Explicit user and repository instructions take precedence.
 ```
 
-`agents/openai.yaml` 已启用隐式调用，也可以显式输入 `$git-latest-code-check`
+`agents/openai.yaml` 已关闭隐式调用。日常 Git 仓库任务由上面的全局规则在预检通过后调用，也可以显式输入 `$git-latest-code-check`
 
 ## 命令
 

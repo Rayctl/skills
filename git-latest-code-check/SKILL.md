@@ -1,11 +1,11 @@
 ---
 name: git-latest-code-check
-description: Check whether a Git worktree contains the latest selected remote branch before planning or modifying code, and perform only an explicitly approved fast-forward update; skip non-Git work and ref-pinned read-only analysis.
+description: Check whether an already-confirmed Git worktree contains the latest selected remote branch before substantive code planning or modification, and perform only an explicitly approved fast-forward update. Do not use this skill to discover whether a task has a repository.
 ---
 
 # Git Latest Code Check
 
-Use once per task before substantive code planning, creation, or modification in each Git worktree. This check establishes the task baseline; it does not promise that the remote will remain unchanged during the task.
+Use once per task before substantive code planning, creation, or modification in each Git worktree. The caller must already have confirmed the target with `git rev-parse --is-inside-work-tree` in the current working directory or an explicitly named repository path. Do not load or invoke this skill merely to discover whether a task has a repository, and do not search unrelated directories for one. This check establishes the task baseline; it does not promise that the remote will remain unchanged during the task.
 
 ## Check Before Work
 
@@ -22,7 +22,7 @@ Use `--remote <name> --branch <name>` together only when the task or user explic
 - Tell the user the repository, current branch, intended remote branch, local/remote commits when available, dirty state, and why work stopped
 - Do not rerun during the same task unless the repository or branch changes, the user requests it, or an approved update succeeds
 
-Skip this workflow for non-Git directories, ordinary explanatory questions, and read-only analysis explicitly pinned to a commit, PR, tag, or immutable ref.
+Skip this workflow without mentioning the skill when the conversation has no associated Git repository, no repository path was explicitly provided, or the candidate directory is not a Git worktree. Also skip ordinary explanatory questions and read-only analysis explicitly pinned to a commit, PR, tag, or immutable ref.
 
 ## Report Every Result
 
