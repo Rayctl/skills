@@ -29,6 +29,7 @@ Always apply the core rules below. Load a reference only when its trigger matche
 - Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, `normalize` vocabulary, or unclear call-site responsibility; do not load it for otherwise clear identifiers
 - Read [references/exception-communication.md](references/exception-communication.md) when code throws, converts, returns, logs, or documents a failure; adds or changes a caller-visible message or message constant; or changes a `catch` or `finally` path
 - Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) for multi-stage or cross-store behavior, transactions, remote or asynchronous work, retries, caches, compensation, locks, resources, or non-obvious failure policy
+- Read [references/control-flow.md](references/control-flow.md) when code adds or changes a ternary, `if`/`else`, loop, or long chained expression whose wrapping is being considered
 - Read [references/checker.md](references/checker.md) for `--base`, `--line-range`, `--exclude`, unclear scope, checker errors, or exact CLI and rule behavior; run ordinary worktree and explicit-path checks directly
 
 ## Core Quality Rules
@@ -43,6 +44,8 @@ Always apply the core rules below. Load a reference only when its trigger matche
 - treat changed `try-catch-finally` code as a behavioral boundary. Immediately before fallback, degradation, retry, suppression, continuation, compensation, or exception conversion, comment what failed, what happens next, and which guarantee is preserved or skipped; transparent direct rethrows are exempt
 - ensure every caller-visible error is truthful for every condition reaching it. When failure reasons differ in error category or effective recovery action, preserve the reason and split the branch, error, or typed failure instead of polishing one combined message
 - separate caller messages, internal diagnostics, and control-flow comments. Align error code, exception type, message, and actual behavior; never expose raw downstream errors or sensitive implementation details
+- keep ternaries for short pure value choices only; when null handling, comparison, method calls, side effects, or multiple operations make the condition dense, prefer a braced `if`
+- use braces for every `if`, `else`, `for`, `while`, and `do while` body, including one-statement exits; follow the repository formatter and wrap long expressions only when the complete line exceeds the local limit or becomes harder to scan
 - Java comments, including JavaDoc and body comments, must not end with `。` or `.`. Keep exactly one blank line between method declarations and report every changed-scope violation
 
 ## Verification And Findings

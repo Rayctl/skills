@@ -29,6 +29,7 @@
 | [naming.md](references/naming.md) | 名称过于宽泛、集合和状态命名、枚举查询、`normalize`、使用位置看不出职责 |
 | [exception-communication.md](references/exception-communication.md) | 异常抛出或转换、用户可见文案及其常量、错误返回、失败日志、`catch` 或 `finally` |
 | [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) | 事务、跨存储、远程或异步调用、缓存、重试、补偿、锁和资源生命周期 |
+| [control-flow.md](references/control-flow.md) | 三元表达式、`if`/`else`/循环的大括号，以及较长表达式的换行 |
 | [checker.md](references/checker.md) | 基线、行范围、排除路径、范围歧义、CLI 错误和规则编号 |
 
 简单字段、协议常量或注解调整不需要读取异常和生命周期规则；用户能看到的异常文案常量属于异常处理的一部分，需要读取对应规则。代码涉及哪些情况，就要读取哪些详细规则，不能为了节省上下文而漏掉。
@@ -142,6 +143,27 @@ if (field.isGroup() && field.hasValueRule()) {
 
 只有当刷新、重试、重新保存或重新配置确实能解决当前原因时，才能给出对应建议。无法区分原因时使用真实的组合描述，不提供只适用于部分路径的动作，并在内部保留可诊断信息。用户提示优先使用业务名称；技术标识只在目标受众能据此定位时作为辅助锚点。
 
+### 三元表达式、控制流与换行
+
+三元表达式只保留简单的纯值选择，例如：
+
+```java
+String statusText = enabled ? "启用" : "停用";
+```
+
+如果一行同时包含赋值、比较、空值判断和方法调用，拆成带大括号的 `if` 更容易看懂：
+
+```java
+String userName = null;
+if (user != null) {
+    userName = user.getName();
+}
+```
+
+所有 `if`、`else`、`for`、`while` 和 `do while` 都使用大括号，即使分支只有一条语句。三元表达式是否影响业务理解由 Skill 结合语义判断，检查器只自动检查缺少大括号。
+
+换行先遵循项目 formatter 或明确的最大行宽。没有项目约定时，能在当前 IDE 常见视口内完整展示且结构清楚的短调用保持一行；超过行宽、参数边界不清或一行包含多个独立动作时再换行。不要因为变量名或方法名较长就机械拆开，也不要为了避免换行而保留难以扫描的长表达式。
+
 ## 安装
 
 克隆仓库并进入根目录：
@@ -197,6 +219,7 @@ java-backend-code-quality/
 |   |-- checker.md
 |   |-- comments-and-javadoc.md
 |   |-- contracts-and-lifecycles.md
+|   |-- control-flow.md
 |   |-- exception-communication.md
 |   |-- method-design.md
 |   |-- naming.md
@@ -232,8 +255,9 @@ py -3 "$env:USERPROFILE\.codex\skills\java-backend-code-quality\scripts\check_ja
 - `STYLE-CATCH-001`：改变行为的 `catch` 缺少说明后续处理的注释
 - `STYLE-GUARD-001`：至少三个用于提前退出的入口判断前，没有说明整组校验目的的注释
 - `STYLE-INTENT-001`：明显复杂的方法中，主要处理阶段前完全没有意图注释
+- `STYLE-BRACE-001`：`if`、`else`、`for`、`while` 或 `do while` 的执行体缺少大括号
 
-检查器不会判断自然语言是否清楚、处理阶段是否说明完整、私有方法或复用型异常文案常量是否应该写回使用位置、当前变化是否值得采用设计模式、错误原因是否应拆分、恢复动作是否有效、错误码是否匹配或是否泄露敏感信息。这些问题由 Skill 结合代码含义检查。
+检查器不会判断自然语言是否清楚、处理阶段是否说明完整、三元表达式是否应该改写、私有方法或复用型异常文案常量是否应该写回使用位置、当前变化是否值得采用设计模式、错误原因是否应拆分、恢复动作是否有效、错误码是否匹配或是否泄露敏感信息。这些问题由 Skill 结合代码含义检查。
 
 ## 验证
 

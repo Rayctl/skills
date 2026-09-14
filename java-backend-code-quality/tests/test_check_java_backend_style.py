@@ -847,6 +847,197 @@ class IntentAndGuardRuleTests(CheckerTestCase):
             self.assertIn("STYLE-INTENT-001", inside.stdout)
 
 
+class ControlFlowRuleTests(CheckerTestCase):
+    def test_single_line_if_requires_braces(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "SingleIf.java",
+                """
+                    class SingleIf {
+                        void run(boolean enabled) {
+                            if (enabled) return;
+                        }
+                    }
+                """,
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+            self.assertIn("if (enabled) return;", result.stdout)
+
+    def test_single_line_loops_and_else_require_braces(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "SingleLoops.java",
+                """
+                    class SingleLoops {
+                        void run(boolean enabled) {
+                            if (enabled) {
+                                work();
+                            } else work();
+                            for (int index = 0; index < 1; index++) work();
+                            while (enabled) work();
+                            do work(); while (enabled);
+                        }
+
+                        void work() {
+                        }
+                    }
+                """,
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(4, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+
+    def test_do_while_with_control_statement_body_does_not_double_report(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "NestedDoWhile.java",
+                """
+                    class NestedDoWhile {
+                        void run(boolean enabled) {
+                            do if (enabled) {
+                                work();
+                            } while (enabled);
+                        }
+
+                        void work() {
+                        }
+                    }
+                """,
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+            self.assertIn("do if (enabled)", result.stdout)
+            self.assertNotIn("while statement requires braces", result.stdout)
+
+    def test_all_control_bodies_with_braces_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "BracedFlow.java",
+                """
+                    class BracedFlow {
+                        void run(boolean enabled) {
+                            // Exercise each supported control form with explicit bodies
+                            if (enabled) {
+                                work();
+                            } else if (!enabled) {
+                                work();
+                            } else {
+                                work();
+                            }
+                            for (int index = 0; index < 1; index++) {
+                                work();
+                            }
+                            while (enabled) {
+                                break;
+                            }
+                            do {
+                                work();
+                            } while (enabled);
+                        }
+
+                        void work() {
+                        }
+                    }
+                """,
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_else_if_requires_braces_on_its_actual_body(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "UnbracedElseIf.java",
+                """
+                    class UnbracedElseIf {
+                        void run(boolean first, boolean second) {
+                            if (first) {
+                                work();
+                            } else if (second) return;
+                            else {
+                                work();
+                            }
+                        }
+
+                        void work() {
+                        }
+                    }
+                """,
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+            self.assertIn("else if (second) return;", result.stdout)
+
+    def test_comments_and_strings_do_not_trigger_brace_rule(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(
+                temporary,
+                "MaskedFlow.java",
+                r'''
+                    class MaskedFlow {
+                        String text = "if (enabled) return;";
+                        // for (int index = 0; index < 1; index++) work();
+                        void run(boolean enabled) {
+                            /* while (enabled) work(); */
+                            if (enabled) {
+                                work();
+                            }
+                        }
+
+                        void work() {
+                        }
+                    }
+                ''',
+            )
+
+            result = self.run_checker(path)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
+    def test_line_range_reports_only_selected_control_statement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = """
+                class ScopedFlow {
+                    void run(boolean first, boolean second) {
+                        if (first) return;
+                        if (second) return;
+                    }
+                }
+            """
+            path = self.write(temporary, "ScopedFlow.java", source).resolve()
+            first_line = next(
+                index for index, line in enumerate(path.read_text().splitlines(), 1)
+                if "if (first)" in line
+            )
+
+            result = self.run_checker(
+                "--line-range", f"{path}:{first_line}-{first_line}"
+            )
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+            self.assertIn("if (first) return;", result.stdout)
+            self.assertNotIn("if (second) return;", result.stdout)
+
+
 class LineRangeTests(CheckerTestCase):
     def test_line_range_only_reports_intersecting_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -989,6 +1180,26 @@ class ChangedScopeTests(CheckerTestCase):
 
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             self.assertNotIn("STYLE-INTENT-001", result.stdout)
+
+    def test_changed_mode_reports_new_brace_violation_only(self):
+        temporary, repo = self.make_repo()
+        with temporary:
+            path = self.write(
+                repo,
+                "Flow.java",
+                "class Flow {\n    void run(boolean enabled) {\n        if (enabled) {\n            work();\n        }\n    }\n    void work() {}\n}\n",
+            )
+            self.commit_all(repo, "base")
+            path.write_text(
+                "class Flow {\n    void run(boolean enabled) {\n        if (enabled) return;\n    }\n    void work() {}\n}\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker("--changed", "--repo", repo)
+
+            self.assertEqual(1, result.returncode, result)
+            self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+            self.assertIn("if (enabled) return;", result.stdout)
 
     def test_changed_mode_detects_staged_unstaged_and_untracked_java(self):
         temporary, repo = self.make_repo()

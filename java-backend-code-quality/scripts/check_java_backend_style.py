@@ -29,6 +29,7 @@ CATCH_PATTERN = re.compile(r"\bcatch\s*\(")
 BEHAVIOR_PATTERN = re.compile(r"\b(?:return|break|continue)\b|\bthrow\s+new\b")
 CONTROL_FLOW_PATTERN = re.compile(r"\b(?:if|for|while|do|switch|catch)\b")
 IF_PATTERN = re.compile(r"\bif\b")
+CONTROL_STATEMENT_PATTERN = re.compile(r"\b(?:if|else|for|while|do)\b")
 TERMINATION_PATTERN = re.compile(r"\b(?:throw|return|break|continue)\b")
 LOCAL_EXTRACTION_PATTERN = re.compile(
     r"^(?:final\s+)?(?:var|[A-Za-z_$][A-Za-z0-9_$\.\[\]]*"
@@ -731,6 +732,130 @@ def check_catch_comments(masked, comments, starts, source_lines, paren_pairs,
     return findings
 
 
+def skip_space(masked, start, limit):
+    while start < limit and masked[start].isspace():
+        start += 1
+    return start
+
+
+def control_body_start(masked, keyword_start, keyword, paren_pairs, limit):
+    cursor = keyword_start + len(keyword)
+    cursor = skip_space(masked, cursor, limit)
+    if keyword == "else":
+        return cursor
+    if keyword == "do":
+        return cursor
+    if cursor >= limit or masked[cursor] != "(":
+        return None
+    closing = paren_pairs.get(cursor)
+    if closing is None or closing >= limit:
+        return None
+    return skip_space(masked, closing + 1, limit)
+
+
+def statement_end(masked, start, paren_pairs, brace_pairs, depths, limit):
+    """Find the end of one statement for do-while boundary detection."""
+    start = skip_space(masked, start, limit)
+    if start >= limit:
+        return None
+    if masked[start] == "{":
+        closing = brace_pairs.get(start)
+        return None if closing is None else closing + 1
+
+    keyword_match = re.match(r"(if|for|while|do)\b", masked[start:limit])
+    if keyword_match is not None:
+        keyword = keyword_match.group(1)
+        body_start = control_body_start(
+            masked, start, keyword, paren_pairs, limit
+        )
+        if body_start is None:
+            return None
+        body_end = statement_end(
+            masked, body_start, paren_pairs, brace_pairs, depths, limit
+        )
+        if body_end is None:
+            return None
+        if keyword == "if":
+            cursor = skip_space(masked, body_end, limit)
+            if re.match(r"else\b", masked[cursor:limit]):
+                return statement_end(
+                    masked, cursor + len("else"), paren_pairs,
+                    brace_pairs, depths, limit
+                )
+            return body_end
+        if keyword == "do":
+            cursor = skip_space(masked, body_end, limit)
+            if not re.match(r"while\b", masked[cursor:limit]):
+                return body_end
+            condition_start = control_body_start(
+                masked, cursor, "while", paren_pairs, limit
+            )
+            if condition_start is None:
+                return body_end
+            semicolon = statement_semicolon(
+                masked, condition_start, limit, depths, depths[condition_start]
+            )
+            return None if semicolon is None else semicolon + 1
+        return body_end
+
+    semicolon = statement_semicolon(
+        masked, start, limit, depths, depths[start]
+    )
+    return None if semicolon is None else semicolon + 1
+
+
+def do_while_conditions(masked, paren_pairs, brace_pairs, depths):
+    """Return while tokens belonging to do-while statements."""
+    conditions = set()
+    for match in re.finditer(r"\bdo\b", masked):
+        body_start = skip_space(masked, match.end(), len(masked))
+        if body_start >= len(masked):
+            continue
+        body_end = statement_end(
+            masked, body_start, paren_pairs, brace_pairs, depths, len(masked)
+        )
+        if body_end is None:
+            continue
+        cursor = skip_space(masked, body_end, len(masked))
+        while_match = re.match(r"while\b", masked[cursor:])
+        if while_match is not None:
+            conditions.add(cursor)
+    return conditions
+
+
+def check_control_braces(masked, starts, source_lines, paren_pairs, brace_pairs,
+                         depths):
+    findings = []
+    do_while_tokens = do_while_conditions(
+        masked, paren_pairs, brace_pairs, depths
+    )
+    for match in CONTROL_STATEMENT_PATTERN.finditer(masked):
+        keyword = match.group(0)
+        if keyword == "while" and match.start() in do_while_tokens:
+            continue
+
+        body_start = control_body_start(
+            masked, match.start(), keyword, paren_pairs, len(masked)
+        )
+        if body_start is None or body_start >= len(masked):
+            continue
+        if keyword == "else" and re.match(r"if\b", masked[body_start:]):
+            continue
+        if masked[body_start] == "{":
+            continue
+
+        line = line_number(starts, match.start())
+        findings.append(Finding(
+            line,
+            "STYLE-BRACE-001",
+            "%s statement requires braces around its body" % keyword,
+            source_line(source_lines, line),
+            line,
+            line,
+        ))
+    return findings
+
+
 def analyze_source(source):
     starts = line_starts(source)
     source_lines = source.splitlines()
@@ -748,6 +873,9 @@ def analyze_source(source):
     ))
     findings.extend(check_catch_comments(
         masked, comments, starts, source_lines, paren_pairs, brace_pairs, classes
+    ))
+    findings.extend(check_control_braces(
+        masked, starts, source_lines, paren_pairs, brace_pairs, depths
     ))
     findings.extend(check_guard_comments(
         masked, comments, methods, starts, source_lines,
