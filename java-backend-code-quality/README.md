@@ -14,6 +14,8 @@
 - 改变控制流的 `catch` 在行为发生前说明后续路径和保留或跳过的保证
 - 用户异常提示、错误类别和真实恢复动作保持一致
 - 第三方调用区分业务拒绝和技术失败，保留可定位的第三方错误信息，并按仓库约定决定日志范围
+- 重要判断区分权威约束、实际行为、外部契约、局部惯例和默认建议，不能把偏好写成项目事实
+- formatter、代码生成、测试修复或 Git hook 改动文件后，重新读取最终 diff 和受影响文件，再报告验证结果
 - Java 注释结尾不使用中文或英文句号，方法声明之间只保留一行空行
 
 检查范围默认限于当前任务的暂存、未暂存和未跟踪 Java 变更，也可以指定文件、行范围、提交或对比分支。不会报告未修改的历史代码、生成代码和第三方代码，但理解当前改动时可以读取它们。
@@ -32,6 +34,7 @@
 | [remote-calls.md](references/remote-calls.md) | HTTP、Feign、RPC、外部 SDK、请求响应日志、第三方错误解析或映射 |
 | [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) | 事务、跨存储、异步调用、缓存、重试、补偿、锁和资源生命周期 |
 | [control-flow.md](references/control-flow.md) | 三元表达式、`if`/`else`/循环的大括号，以及较长表达式的换行 |
+| [evidence-and-verification.md](references/evidence-and-verification.md) | 证据缺失或冲突，以及工具、生成器或 hook 可能改写最终代码 |
 | [checker.md](references/checker.md) | 基线、行范围、排除路径、范围歧义、CLI 错误和规则编号 |
 
 简单字段、协议常量或注解调整不需要读取异常和生命周期规则；用户能看到的异常文案常量属于异常处理的一部分，需要读取对应规则。代码涉及哪些情况，就要读取哪些详细规则，不能为了节省上下文而漏掉。
@@ -164,6 +167,20 @@ if (response.isError()) {
 
 业务拒绝、HTTP 非成功、响应无法解析和网络异常需要分别处理。技术异常包装时保留 `cause`，或由唯一负责诊断的层记录一次完整异常，避免每层都记录后再抛出。
 
+### 证据与最终状态
+
+代码附近的常见写法不一定是项目规范，测试通过也不一定代表公开契约正确。做出会影响接口兼容、数据、安全、日志披露、事务或架构的判断时，应区分：
+
+- 用户和仓库明确规定的约束
+- 当前源码、测试、配置和调用链体现的实际行为
+- 对应版本的第三方正式文档
+- 附近代码形成但未声明的惯例
+- Skill 自身提供的默认建议
+
+这些来源冲突时，先说明冲突和影响，不能自行挑选最方便的一项。普通局部可读性问题可以按 Skill 默认处理；会产生不同外部结果且没有足够依据时，再向用户说明选项并等待选择。
+
+所有验证都以最终磁盘状态为准。formatter、代码生成、测试自动修复、IDE、Git hook 或其他工具运行后，需要重新读取 `git status`、最终 diff、受影响文件和新增文件，并重新运行被改动影响的检查。不能用工具执行前的 diff 或旧测试结果证明最终代码已经通过。
+
 ### 三元表达式、控制流与换行
 
 三元表达式只保留简单的纯值选择，例如：
@@ -206,6 +223,16 @@ Git Bash：
 cp -R ./java-backend-code-quality "$HOME/.codex/skills/"
 ```
 
+复制后可用只读脚本比较仓库副本和安装副本的文件清单及 SHA-256：
+
+```powershell
+py -3 ".\java-backend-code-quality\scripts\verify_skill_installation.py" `
+  --source ".\java-backend-code-quality" `
+  --target "$env:USERPROFILE\.codex\skills\java-backend-code-quality"
+```
+
+退出码 `0` 表示完全一致，`1` 表示存在缺失、多余或内容不同的文件，`2` 表示输入或环境错误。脚本忽略 `__pycache__` 和 `.pyc` 等运行缓存，不复制、覆盖或删除任何文件。
+
 安装后的入口为：
 
 ```text
@@ -236,23 +263,30 @@ java-backend-code-quality/
 |-- SKILL.md
 |-- agents/
 |   `-- openai.yaml
+|-- evals/
+|   |-- README.md
+|   `-- semantic-cases.json
 |-- references/
 |   |-- checker.md
 |   |-- comments-and-javadoc.md
 |   |-- contracts-and-lifecycles.md
 |   |-- control-flow.md
+|   |-- evidence-and-verification.md
 |   |-- exception-communication.md
 |   |-- method-design.md
 |   |-- naming.md
 |   |-- remote-calls.md
 |   `-- structure-choice.md
 |-- scripts/
-|   `-- check_java_backend_style.py
+|   |-- check_java_backend_style.py
+|   |-- validate_semantic_evals.py
+|   `-- verify_skill_installation.py
 `-- tests/
-    `-- test_check_java_backend_style.py
+    |-- test_check_java_backend_style.py
+    `-- test_skill_quality_assets.py
 ```
 
-README 面向安装和快速理解，引用文件保存完整规则，Python 脚本负责可确定的自动检查。
+README 面向安装和快速理解，引用文件保存完整规则，Python 脚本负责可确定的自动检查，`evals/` 保存需要结合语义判断的代表性场景。
 
 ## 样式检查器
 
@@ -281,11 +315,25 @@ py -3 "$env:USERPROFILE\.codex\skills\java-backend-code-quality\scripts\check_ja
 
 检查器不会判断自然语言是否清楚、处理阶段是否说明完整、三元表达式是否应该改写、私有方法或复用型异常文案常量是否应该写回使用位置、当前变化是否值得采用设计模式、错误原因是否应拆分、恢复动作是否有效、错误码是否匹配或是否泄露敏感信息。第三方调用的日志覆盖、完整报文策略、失败分类、错误映射依据和诊断信息保留也由 Skill 结合代码含义检查。
 
+## 语义评测
+
+[`evals/semantic-cases.json`](evals/semantic-cases.json) 覆盖短私有方法、阶段注释、Map 重复策略、第三方错误、异常降级、JavaDoc、结构选择、证据冲突和工具改写后的最终回读。每个场景记录必须出现和不能出现的决策，不比较固定文案。
+
+校验场景文件结构：
+
+```powershell
+py -3 ".\java-backend-code-quality\scripts\validate_semantic_evals.py" `
+  ".\java-backend-code-quality\evals\semantic-cases.json"
+```
+
+该命令只证明评测数据结构有效。要验证 Agent 行为，需要在没有继承原讨论结论的新会话或独立评测环境中运行场景，并按含义检查决策。
+
 ## 验证
 
 ```powershell
 py -3 -m unittest discover -s "$env:USERPROFILE\.codex\skills\java-backend-code-quality\tests" -p "test_*.py" -v
 py -3 "$env:USERPROFILE\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "$env:USERPROFILE\.codex\skills\java-backend-code-quality"
+py -3 "$env:USERPROFILE\.codex\skills\java-backend-code-quality\scripts\validate_semantic_evals.py"
 ```
 
 在未授予 Windows 符号链接权限的环境中，越界符号链接用例会跳过。

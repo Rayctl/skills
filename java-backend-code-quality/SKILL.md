@@ -5,55 +5,60 @@ description: Create, modify, or review Java backend code using change-scoped qua
 
 # Java Backend Code Quality
 
-Use for Java backend creation, modification, or review. Apply the core rules to every changed production and test source, then load only the references triggered by the code.
+Use for Java backend creation, modification, or review. Apply the core rules to task-owned production and test changes, then load only triggered references.
 
 ## Scope And Authority
 
 Repository instructions and explicit user rules take precedence.
 
-Limit work and findings to current-task changes. Prefer an explicit file, line, commit, or branch; otherwise use staged, unstaged, and untracked Java changes. For a clean worktree, use an explicit baseline or upstream merge-base; ask if neither exists. Ignore unrelated historical, generated, vendored, and third-party code. Read unchanged collaborators as context and report them only when the change activates or regresses their behavior.
+Base material decisions on authoritative contracts and repository evidence, not recommendations presented as facts. Ask only when unresolved evidence materially changes a public contract, data or security behavior, diagnostics, or architecture.
 
-A private helper enters scope when the change creates or edits it, or when a changed call site calls it. A private field or constant enters scope only when the change creates or edits it as a compact reuse abstraction, or a changed use site relies on it in that role. Inspect unchanged declarations as context and report a needless abstraction activated by the changed use site.
+Limit findings to an explicit task file, range, commit, or branch; otherwise use staged, unstaged, and untracked Java changes. For a clean worktree, require a baseline or upstream merge-base. Ignore unrelated historical, generated, vendored, and third-party code; report unchanged collaborators only when the change activates or regresses them.
+
+A private helper, field, or constant enters scope when created or edited, or when a changed use site relies on it as a compact abstraction. Inspect unchanged declarations only as context for that changed use.
 
 ## Modes And Routing
 
-In implementation mode, identify non-trivial stages, inputs and outputs, ownership, ordering, and failure consequences before coding. Before editing production behavior, evaluate current variation using the structure-choice triggers below. If a new design pattern has material current benefit, present the simple and structured options and pause for the user's choice; otherwise continue without announcing the check. Apply this advisory to shared test infrastructure only when it has the same variation signals. Apply the quality rules while writing code and recheck changed ranges before finishing.
+In implementation mode, map non-trivial stages, data flow, ownership, ordering, and failure consequences before coding. Apply the structure-choice triggers before editing production behavior: pause with simple and structured options only when a new pattern has material current benefit. Apply this advisory to shared test infrastructure only with the same variation signals. Enforce the rules while coding and recheck changed ranges.
 
-In review mode, report without editing unless fixes are requested. Lead with severity, file, line, evidence, impact, and the smallest correction; connect preferences to concrete behavioral or maintenance cost. Do not run the optional structure-choice advisory in review-only work.
+In review mode, do not edit unless asked. Lead with severity, location, evidence, impact, and the smallest correction. Skip the optional structure-choice advisory.
 
 Always apply the core rules below. Load a reference only when its trigger matches:
 
-- Read [references/method-design.md](references/method-design.md) when code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper; extracts compact logic or literals into a private field or constant; introduces deferred execution; or raises an abstraction-granularity question
-- Read [references/structure-choice.md](references/structure-choice.md) only in implementation mode when the task adds another implementation of one responsibility, extends type/state/protocol/provider branching, repeats one flow with varying steps, scatters object creation, or selects behavior from configuration or runtime state
-- Read [references/comments-and-javadoc.md](references/comments-and-javadoc.md) when code adds or changes a class, method, JavaDoc, comment, guard cluster, or non-trivial method body
-- Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, `normalize` vocabulary, or unclear call-site responsibility; do not load it for otherwise clear identifiers
-- Read [references/exception-communication.md](references/exception-communication.md) when code throws, converts, returns, logs, or documents a failure; adds or changes a caller-visible message or message constant; or changes a `catch` or `finally` path
-- Read [references/remote-calls.md](references/remote-calls.md) when code adds or changes an HTTP, Feign, RPC, or external SDK call; its request or response logging; downstream error parsing or mapping; or the failure returned by that call
+- Read [references/method-design.md](references/method-design.md) for application private helpers, compact reuse fields or constants, deferred execution, or abstraction-granularity questions
+- Read [references/structure-choice.md](references/structure-choice.md) in implementation mode for growing implementations or branches, varying repeated flows, scattered creation, or runtime-selected behavior
+- Read [references/comments-and-javadoc.md](references/comments-and-javadoc.md) for changed classes, methods, JavaDoc, comments, guard clusters, or non-trivial method bodies
+- Read [references/naming.md](references/naming.md) for generic, state, or collection vocabulary, enum lookups, renames, `normalize`, or unclear call-site responsibility
+- Read [references/exception-communication.md](references/exception-communication.md) for changed failure behavior, messages, logs, `catch`, or `finally`
+- Read [references/remote-calls.md](references/remote-calls.md) for changed HTTP, Feign, RPC, or external SDK calls, logging, error parsing, mapping, or returned failures
 - Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) for multi-stage or cross-store behavior, transactions, asynchronous work, retries, caches, compensation, locks, resources, or non-obvious failure policy
-- Read [references/control-flow.md](references/control-flow.md) when code adds or changes a ternary, `if`/`else`, loop, or long chained expression whose wrapping is being considered
-- Read [references/checker.md](references/checker.md) for `--base`, `--line-range`, `--exclude`, unclear scope, checker errors, or exact CLI and rule behavior; run ordinary worktree and explicit-path checks directly
+- Read [references/control-flow.md](references/control-flow.md) for changed ternaries, branches, loops, or long expressions
+- Read [references/evidence-and-verification.md](references/evidence-and-verification.md) for missing or conflicting evidence, or post-edit tool changes
+- Read [references/checker.md](references/checker.md) for advanced scope options, unclear scope, errors, or exact checker behavior
 
 ## Core Quality Rules
 
 - preserve caller-visible null, empty, absent, disabled, default, and exception semantics
 - assign one clear owner for validation, state transitions, persistence, cleanup, and delayed work; keep ordering that protects compatibility, idempotency, security, transactions, and failure isolation
 - do not hide meaningful I/O, mutation, retry, fallback, compensation, or cleanup inside an apparently pure calculation or condition
-- make the receiver, method name, arguments, return type, and result use reveal the concrete subject, action, result, and caller-relevant side effects. Do not introduce application-defined `normalize` vocabulary, generic shape-only names, ambiguous enum lookups, or collection names that hide type, cardinality, state, key relation, or duplicate policy
+- make call sites reveal the subject, action, result, and caller-relevant side effects. Avoid application-defined `normalize`, shape-only names, ambiguous enum lookups, and collection names that hide cardinality, state, key relation, or duplicate policy
 - require JavaDoc for every public method and every application-defined method that owns an independent business action or processing stage, regardless of visibility, body length, linearity, or a clear name. Exempt only inherited or generated contracts and private helpers with no independent semantics
 - add top-level intent comments when names and types do not reveal a stage's reason, precondition, consumer, order, compatibility rule, or failure consequence. Treat adjacent calls as separate stages when responsibility, handoff, side effects, ordering, or failure boundaries differ
-- compare every in-scope private helper and every private field or constant used only for compact reuse with the same logic or value written directly at its use sites. Prefer the direct form when it exposes useful inputs, field sources, null handling, the real delegate, or caller-visible error text; call count, DRY, JavaDoc, a long constant name, or a clear helper name never proves extraction is better
+- compare compact private helpers, fields, and constants with writing their logic or value at the use sites. Prefer the form that exposes inputs, null handling, the real delegate, or error text; reuse count, DRY, JavaDoc, or a clear name never proves extraction is better
 - treat changed `try-catch-finally` code as a behavioral boundary. Immediately before fallback, degradation, retry, suppression, continuation, compensation, or exception conversion, comment what failed, what happens next, and which guarantee is preserved or skipped; transparent direct rethrows are exempt
 - ensure every caller-visible error is truthful for every condition reaching it. When failure reasons differ in error category or effective recovery action, preserve the reason and split the branch, error, or typed failure instead of polishing one combined message
 - separate caller messages, internal diagnostics, and control-flow comments. Align error code, exception type, message, and actual behavior
 - for third-party calls, distinguish business rejection, HTTP or RPC failure, invalid response, and transport failure. Preserve structured business-error details in a deliberate caller or diagnostic path; do not invent error mappings or logging and disclosure policy when repository evidence is absent
 - keep ternaries for short pure value choices only; when null handling, comparison, method calls, side effects, or multiple operations make the condition dense, prefer a braced `if`
-- use braces for every `if`, `else`, `for`, `while`, and `do while` body, including one-statement exits; follow the repository formatter and wrap long expressions only when the complete line exceeds the local limit or becomes harder to scan
+- brace every `if`, `else`, `for`, `while`, and `do while` body. Follow the repository formatter and wrap only when the line exceeds the local limit or becomes harder to scan
 - Java comments, including JavaDoc and body comments, must not end with `。` or `.`. Keep exactly one blank line between method declarations and report every changed-scope violation
 
 ## Verification And Findings
 
-Test changed input, output, absence, failure, and state semantics. Run `scripts/check_java_backend_style.py` for the selected worktree or paths. Never claim tests passed when compilation failed or did not start. Separate confirmed facts, supplied configuration, inference, and runtime assumptions.
+Test changed input, output, absence, failure, and state semantics. Run `scripts/check_java_backend_style.py`. Never claim tests passed when compilation failed or did not start; separate facts, configuration, inference, and runtime assumptions.
+
+After a formatter, generator, test fix, hook, or tool changes files, reread affected files and the final diff, recompute reference triggers, and rerun invalidated checks. Report the observed final state, not an intended patch or stale snapshot.
 
 Use `P0` for data loss, security exposure, or system-wide outage risk; `P1` for likely incorrect behavior, lifecycle leaks, or broken contracts; `P2` for hidden semantics likely to cause defects, misleading recovery, unsafe disclosure, or unsafe maintenance; and `P3` for local clarity or deterministic style. Detailed severity rules live with their owning reference.
 
-Before closing, recheck scope, caller-visible semantics, names, method design, JavaDoc, stage and guard comments, behavior-changing catches, error cause and recovery alignment, internal diagnostics, applicable remote-call and lifecycle rules, tests, and checker output. State residual risks when no findings remain.
+Before closing, recheck scope, caller semantics, names, method design, JavaDoc, intent comments, catches, error alignment, diagnostics, applicable remote-call and lifecycle rules, tests, and checker output. State residual risks.

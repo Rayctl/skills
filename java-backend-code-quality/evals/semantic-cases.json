@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "inline-short-predicate-despite-reuse",
+      "title": "Repeated short predicate remains clearer at the call site",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "fixture": "A private helper used three times only returns field != null && Catalog.isReference(field.getCode(), field.getPath()). The changed call sites rely on its null behavior.",
+      "expected_decisions": [
+        "Compare the helper with the expression written at each changed call site",
+        "Recommend the direct expression when it keeps the branch compact and exposes null and field semantics",
+        "Treat reuse count as duplication cost rather than proof that the helper should remain"
+      ],
+      "disallowed_decisions": [
+        "Keep the helper solely because it has multiple callers",
+        "Require a JavaDoc as the primary fix for the hidden predicate"
+      ]
+    },
+    {
+      "id": "separate-adjacent-processing-stages",
+      "title": "Adjacent calls with different responsibilities need separate intent comments",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc", "contracts-and-lifecycles"],
+      "fixture": "One call maps and validates a request for the next processor. The following call performs remote business execution. A single comment currently covers both calls.",
+      "expected_decisions": [
+        "Treat mapping and remote execution as separate stages",
+        "Require each stage comment to explain its own handoff, ordering, or failure consequence"
+      ],
+      "disallowed_decisions": [
+        "Accept one comment merely because both calls use the same receiver"
+      ]
+    },
+    {
+      "id": "map-duplicate-policy",
+      "title": "Map construction must expose duplicate selection policy",
+      "mode": "review",
+      "triggers": ["naming", "contracts-and-lifecycles"],
+      "fixture": "MongoDB returns active schemas without an explicit sort. The code uses putIfAbsent(schema.getApiCode(), schema) and names the result schemasByApiCodeMap.",
+      "expected_decisions": [
+        "Identify nondeterministic first-record selection when duplicate active schemas exist",
+        "Require uniqueness validation or a stable ordering and a name that exposes first-record policy"
+      ],
+      "disallowed_decisions": [
+        "Treat putIfAbsent as a complete duplicate policy",
+        "Approve the generic map name without explaining selection semantics"
+      ]
+    },
+    {
+      "id": "remote-business-error-preservation",
+      "title": "Structured provider rejection cannot be erased",
+      "mode": "review",
+      "triggers": ["remote-calls", "exception-communication"],
+      "fixture": "A successful HTTP response contains Error=true and ErrorMessage. The code logs only BUSINESS_REJECTED and throws Remote call failed. No repository mapping table or disclosure contract is found.",
+      "expected_decisions": [
+        "Report that the only provider diagnostic detail has been lost",
+        "Keep business rejection distinct from transport and parsing failures",
+        "Present caller exposure, internal retention, and an explicit provider failure type as options because mapping evidence is absent"
+      ],
+      "disallowed_decisions": [
+        "Invent a local error mapping from message similarity",
+        "Require unconditional raw provider-message exposure",
+        "Treat the structured business error as an exception message"
+      ]
+    },
+    {
+      "id": "remote-infrastructure-avoids-duplicate-log",
+      "title": "Complete safe infrastructure logging should not be duplicated",
+      "mode": "implementation",
+      "triggers": ["remote-calls"],
+      "fixture": "A repository interceptor already records the operation, masked request fields, response status, provider error, request ID, elapsed time, retry outcome, and the final exception once in production.",
+      "expected_decisions": [
+        "Reuse the existing diagnostic owner",
+        "Add business-layer logging only if a concrete investigation field is still missing"
+      ],
+      "disallowed_decisions": [
+        "Always print request and response again in the service",
+        "Add catch-log-throw at every layer"
+      ]
+    },
+    {
+      "id": "catch-fallback-comment",
+      "title": "Fallback catch explains the changed guarantee locally",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc", "exception-communication"],
+      "fixture": "A catch for fingerprint generation returns a direct AUTH API result without pending cache-write state. The try block has a comment, but the catch has no local comment.",
+      "expected_decisions": [
+        "Require a catch-local comment before the fallback return",
+        "Explain the failed operation, direct AUTH path, and skipped cache-write guarantee"
+      ],
+      "disallowed_decisions": [
+        "Accept the try-block comment or log text as a replacement",
+        "Require comments for transparent direct rethrows"
+      ]
+    },
+    {
+      "id": "independent-action-javadoc",
+      "title": "Clear method name does not remove an independent action contract",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "fixture": "A private method named captureFinalHttpRequestPayload performs one linear independent lifecycle action and has no JavaDoc.",
+      "expected_decisions": [
+        "Require JavaDoc because the method owns an independent processing or lifecycle action",
+        "Describe the contract information not visible from the name instead of restating the method name"
+      ],
+      "disallowed_decisions": [
+        "Exempt the method solely because its name is clear and its body is linear"
+      ]
+    },
+    {
+      "id": "simple-branch-no-pattern",
+      "title": "A local branch does not justify a design pattern",
+      "mode": "implementation",
+      "triggers": ["structure-choice"],
+      "fixture": "The task adds one local if branch for a second implementation. Selection occurs in one place and both branches remain short with no shared workflow duplication.",
+      "expected_decisions": [
+        "Keep the direct branch because a new structure has no material current benefit",
+        "Continue without pausing for a design-pattern choice"
+      ],
+      "disallowed_decisions": [
+        "Add an interface and factory only because a second implementation exists",
+        "Report the direct branch as a quality finding"
+      ]
+    },
+    {
+      "id": "material-evidence-conflict",
+      "title": "Conflicting public-contract evidence must be surfaced",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification"],
+      "fixture": "A published API document requires NOT_FOUND, an executable test expects INVALID_ARGUMENT, and current source returns a generic failure. The requested change touches this response contract.",
+      "expected_decisions": [
+        "Report the conflict among authority, test, and observed source behavior",
+        "Explain the caller compatibility impact and request a decision before changing the contract"
+      ],
+      "disallowed_decisions": [
+        "Choose the test automatically because it is executable",
+        "Choose the most common nearby pattern without reporting the conflict"
+      ]
+    },
+    {
+      "id": "post-tool-final-readback",
+      "title": "Verification follows the final tool-modified state",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification", "comments-and-javadoc"],
+      "fixture": "The initial patch passes review. A formatter and Git hook then rewrite imports, comments, and one generated Java file before completion.",
+      "expected_decisions": [
+        "Reread repository status, the final diff, and all affected files after the tools finish",
+        "Include the generated file, recompute triggered references, and rerun invalidated checks",
+        "Report only checks that apply to the observed final state"
+      ],
+      "disallowed_decisions": [
+        "Reuse the pre-hook review as final verification",
+        "Treat a successful hook exit code as proof that semantic checks passed"
+      ]
+    }
+  ]
+}
