@@ -59,6 +59,20 @@ class SemanticEvaluationValidationTests(unittest.TestCase):
         self.assertEqual("VALID", result["status"])
         self.assertGreaterEqual(result["case_count"], 10)
 
+    def test_repository_catalog_covers_context_analysis_cases(self):
+        path = SKILL_ROOT / "evals" / "semantic-cases.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        case_ids = {case["id"] for case in payload["cases"]}
+
+        self.assertTrue(
+            {
+                "related-field-semantic-neighborhood",
+                "unexplained-legacy-diagnostic-log",
+                "repository-evidence-explains-log",
+                "local-rename-stays-local",
+            }.issubset(case_ids)
+        )
+
     def test_duplicate_case_id_is_invalid(self):
         payload = self.valid_payload()
         payload["cases"].append(dict(payload["cases"][0]))

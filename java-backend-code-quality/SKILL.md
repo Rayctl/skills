@@ -19,7 +19,7 @@ A private helper, field, or constant enters scope when created or edited, or whe
 
 ## Modes And Routing
 
-In implementation mode, map non-trivial stages, data flow, ownership, ordering, and failure consequences before coding. Apply the structure-choice triggers before editing production behavior: pause with simple and structured options only when a new pattern has material current benefit. Apply this advisory to shared test infrastructure only with the same variation signals. Enforce the rules while coding and recheck changed ranges.
+In implementation mode, treat the named class, method, or field as the starting point rather than the change boundary. Before editing existing behavior, map its semantic neighborhood: trigger and call path, data sources and related invariants, transformations, consumers, side effects, diagnostics, failures, and tests. Apply the structure-choice triggers before editing production behavior: pause with simple and structured options only when a new pattern has material current benefit. After coding, account for each discovered dependency as changed or deliberately preserved, then recheck changed ranges.
 
 In review mode, do not edit unless asked. Lead with severity, location, evidence, impact, and the smallest correction. Skip the optional structure-choice advisory.
 
@@ -33,12 +33,13 @@ Always apply the core rules below. Load a reference only when its trigger matche
 - Read [references/remote-calls.md](references/remote-calls.md) for changed HTTP, Feign, RPC, or external SDK calls, logging, error parsing, mapping, or returned failures
 - Read [references/contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) for multi-stage or cross-store behavior, transactions, asynchronous work, retries, caches, compensation, locks, resources, or non-obvious failure policy
 - Read [references/control-flow.md](references/control-flow.md) for changed ternaries, branches, loops, or long expressions
-- Read [references/evidence-and-verification.md](references/evidence-and-verification.md) for missing or conflicting evidence, or post-edit tool changes
+- Read [references/evidence-and-verification.md](references/evidence-and-verification.md) when modifying existing behavior or data semantics, evidence is missing or conflicting, legacy logic lacks an explanation, or tools change files after editing
 - Read [references/checker.md](references/checker.md) for advanced scope options, unclear scope, errors, or exact checker behavior
 
 ## Core Quality Rules
 
 - preserve caller-visible null, empty, absent, disabled, default, and exception semantics
+- trace changed values through validation, mapping, serialization, persistence, remote calls, caches, logs, errors, and outputs. Treat values as related when they jointly express one business fact, even without a direct reference
 - assign one clear owner for validation, state transitions, persistence, cleanup, and delayed work; keep ordering that protects compatibility, idempotency, security, transactions, and failure isolation
 - do not hide meaningful I/O, mutation, retry, fallback, compensation, or cleanup inside an apparently pure calculation or condition
 - make call sites reveal the subject, action, result, and caller-relevant side effects. Avoid application-defined `normalize`, shape-only names, ambiguous enum lookups, and collection names that hide cardinality, state, key relation, or duplicate policy

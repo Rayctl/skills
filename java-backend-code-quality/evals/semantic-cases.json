@@ -152,6 +152,72 @@
         "Reuse the pre-hook review as final verification",
         "Treat a successful hook exit code as proof that semantic checks passed"
       ]
+    },
+    {
+      "id": "related-field-semantic-neighborhood",
+      "title": "A named field is only the start of impact analysis",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification"],
+      "fixture": "The task asks to change field A. Field B does not reference A, but validation, mapping, and one diagnostic event use A and B together to represent one business state.",
+      "expected_decisions": [
+        "Trace field A through its sources, transformations, consumers, diagnostics, and tests",
+        "Recognize field B and the shared business invariant as part of the semantic neighborhood",
+        "Explicitly decide whether field B and each joint use change or remain valid"
+      ],
+      "disallowed_decisions": [
+        "Limit the change analysis to textual references of field A",
+        "Ignore field B solely because the request did not name it"
+      ]
+    },
+    {
+      "id": "unexplained-legacy-diagnostic-log",
+      "title": "An unexplained legacy log requires evidence before alteration",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification"],
+      "fixture": "A legacy failure log records fields A and B. Current callers, tests, configuration, comments, and comparable code do not explain why both are present. Removing B may reduce production incident diagnosis.",
+      "expected_decisions": [
+        "Inspect focused Git history because current repository evidence cannot explain the diagnostic field",
+        "If the purpose remains unresolved, pause with the evidence checked, exact ambiguity, options, effects, and a recommendation",
+        "Preserve the existing diagnostic capability until the material ambiguity is resolved"
+      ],
+      "disallowed_decisions": [
+        "Remove field B solely because it was not named in the request",
+        "Ask only a broad question about the business logic",
+        "Read the entire module history without a focused reason"
+      ]
+    },
+    {
+      "id": "repository-evidence-explains-log",
+      "title": "Sufficient repository evidence avoids unnecessary questions",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification"],
+      "fixture": "A caller, an integration test, and the logging wrapper contract show that fields A and B correlate a failed request with its resolved owner. The requested representation change to A does not alter B or that correlation.",
+      "expected_decisions": [
+        "Use the caller, test, and logging contract to establish the diagnostic purpose",
+        "Preserve the A and B correlation while applying the representation change",
+        "Continue without asking the user because the repository evidence resolves the decision"
+      ],
+      "disallowed_decisions": [
+        "Pause merely because the log is old",
+        "Require Git history after current evidence already establishes the contract"
+      ]
+    },
+    {
+      "id": "local-rename-stays-local",
+      "title": "A local rename does not require broad impact analysis",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification", "naming"],
+      "fixture": "A private local variable is renamed for clarity. Its initializer, uses, enclosing method, and focused tests show no behavior, contract, data-flow, or diagnostic change.",
+      "expected_decisions": [
+        "Use the enclosing method and focused references to confirm the rename is behavior-neutral",
+        "Keep the investigation and change local",
+        "Continue without asking the user or reading Git history"
+      ],
+      "disallowed_decisions": [
+        "Read the entire module before renaming the local variable",
+        "Report unrelated historical code",
+        "Ask the user to explain business behavior that the rename does not affect"
+      ]
     }
   ]
 }

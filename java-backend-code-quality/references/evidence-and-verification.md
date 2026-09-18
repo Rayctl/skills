@@ -1,6 +1,30 @@
-# Evidence And Final Verification
+# Evidence, Context, And Final Verification
 
-Read this reference when a quality decision depends on missing or conflicting evidence, or when formatters, generators, test fixes, hooks, or other tools may change files after the initial edit. It governs how to distinguish repository facts from Skill defaults and how to verify the code that actually remains on disk.
+Read this reference before modifying existing behavior or data semantics, when a quality decision depends on missing or conflicting evidence, or when tools may change files after the initial edit. It governs semantic impact analysis, the distinction between repository facts and Skill defaults, and verification of the code that actually remains on disk.
+
+## Map The Semantic Neighborhood
+
+The symbol named in the request is an investigation starting point, not automatically the full change boundary. Before editing existing behavior, follow only the paths needed to understand:
+
+- the trigger, relevant callers, and downstream consumers
+- input sources, transformations, validation, serialization, persistence, remote calls, caches, outputs, and failure paths
+- logs and error details used to diagnose the behavior
+- tests, configuration, and contracts that define or preserve it
+- other values that participate in the same invariant, decision, identity, state, or diagnostic event
+
+Two fields can be semantically related without referencing each other. If field A and field B jointly determine a validation result, mapping, log event, cache key, state transition, duplicate policy, or caller-visible response, a change to A must explicitly decide whether B and their shared invariant also change. Searching only for A is not sufficient.
+
+Keep the investigation proportional. Stop following a path when it no longer affects the changed behavior, its contract, or the evidence needed to make the decision. Do not read an entire module by default, report unrelated historical defects, or turn context discovery into an unrequested refactor.
+
+Before editing, identify the affected nodes that need a decision. After editing, revisit each node and confirm that it was updated or deliberately preserved with its invariant still valid.
+
+## Explain Existing Behavior Before Changing It
+
+For a non-obvious log field, compatibility branch, special value, ordering rule, or other legacy behavior, first seek its purpose in current callers, tests, configuration, comments, contracts, and comparable implementations. Use focused Git history only when current evidence cannot explain why the behavior exists and changing it could alter results, compatibility, lifecycle guarantees, or diagnostic capability.
+
+Treat logs as diagnostic behavior rather than decoration. Before adding, removing, or changing logged fields, identify the failure or investigation scenario, how the fields correlate to locate it, which layer owns the record, and whether the resulting event still supports that investigation. A request that names field A does not justify dropping or ignoring field B when both fields make the event understandable.
+
+If the purpose remains unknown and materially different changes are possible, pause before editing. State the evidence inspected, the exact unresolved relationship, the concrete options and effects, and a recommendation. Do not ask broad questions such as "What is the business logic here?"
 
 ## Classify Evidence
 
@@ -18,15 +42,18 @@ When applying a rule, state material evidence in the reasoning or finding. Do no
 
 ## Decide Under Uncertainty
 
-Resolve low-risk, local readability choices using the Skill default and the surrounding style. Ask the user only when missing or conflicting evidence leaves materially different outcomes, including:
+Resolve low-risk, reversible readability choices using the Skill default and the surrounding style, and disclose a consequential assumption in the result. Ask the user only when missing or conflicting evidence leaves materially different outcomes, including:
 
 - public API, persistence, event, or error-contract compatibility
 - authorization, privacy, disclosure, data-loss, or irreversible side effects
 - transaction, retry, idempotency, compensation, or resource ownership
-- third-party error mapping or logging scope
+- third-party error mapping, logging scope, or loss of diagnostic capability
+- the meaning or relationship of data that drives validation, mapping, state, persistence, or output
 - a new cross-cutting abstraction or architectural boundary
 
 Before asking, report the evidence found, the unresolved decision, the concrete options, their costs, and a recommendation. If an established extension point or contract already resolves the choice, follow it without pausing.
+
+Report a missed semantic relationship according to its actual effect: likely incorrect behavior or a broken contract is `P1` or `P2` depending on certainty and impact, loss of material diagnostic capability is normally `P2`, and unnecessary navigation or local understanding cost is `P3`.
 
 ## Read Back The Final State
 
