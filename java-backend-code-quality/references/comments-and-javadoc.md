@@ -38,6 +38,21 @@ When a method begins with three or more terminating guards, add one comment befo
 
 Comments explain intent, boundaries, downstream use, or consequences rather than restating syntax. Do not comment self-evident assignments, pure predicates, getters, or direct calls whose full contract is visible. JavaDoc, logs, catch-local comments, and nested comments do not replace a required top-level stage comment.
 
+## Describe The Current Contract
+
+Write comments from the accepted current behavior and invariant, assuming the reader did not see the implementation history or working discussion. Do not make a superseded implementation, rejected option, old field, or unused input the center of a comment merely because it was considered during the change.
+
+Treat wording such as "X is not used", "X does not participate", "only Y", or "instead of X" as a prompt to check relevance, not as an automatic violation:
+
+- if X no longer affects the current contract and omitting it cannot mislead a maintainer, remove the comparison and state the positive rule directly
+- if X still exists for deserialization, stored-data compatibility, public API stability, migration, fallback, or another current constraint, retain the fact and explain X's present role rather than only saying what it does not do
+- if the explanation is only a record of how the implementation changed, keep it in Git history, a migration note, or a decision record instead of an inline code comment
+- if coexistence remains confusing, improve the name, type, deprecation marker, validation, or code structure rather than relying on a historical aside
+
+Necessary negative guarantees remain valid. State that a failure path skips a cache write, a branch must not publish, an input is intentionally unsupported, or a compatibility field is excluded when that fact changes caller expectations, safety, ordering, or future maintenance. The test is whether a reader without the change history needs the exclusion to understand or safely modify the current code, not whether the sentence contains negative wording.
+
+For example, prefer `// Select the request encoder from the resolved content type` over `// Only the resolved content type selects the encoder; legacyFormat is not used`. If `legacyFormat` is still accepted for stored-data compatibility, say `// Select the request encoder from the resolved content type; legacyFormat is retained only when reading stored configurations`.
+
 ## Comment Maintenance
 
 Remove or update comments when behavior, ownership, or ordering moves. Describe an operation as atomic only when a transaction primitive, lock, or compare-and-set contract actually guarantees atomicity.
@@ -46,4 +61,4 @@ Remove or update comments when behavior, ownership, or ordering moves. Describe 
 
 Java comments, including JavaDoc and method-body comments, must not end with `。` or `.`. Keep exactly one blank line between method declarations. Report every changed-scope violation, even when the impact is only stylistic.
 
-Missing method JavaDoc is `P2` when it hides lifecycle, state, side effects, failure policy, timing, or another contract. Otherwise use `P3` for an independently named action. Missing stage or branch comments are `P2` when they hide ordering, compatibility, selection, error classification, side effects, or failure guarantees; use `P3` when they only add local reading cost. Punctuation, method spacing, and wrapping findings are at most `P3`.
+Missing method JavaDoc is `P2` when it hides lifecycle, state, side effects, failure policy, timing, or another contract. Otherwise use `P3` for an independently named action. Missing stage or branch comments are `P2` when they hide ordering, compatibility, selection, error classification, side effects, or failure guarantees; use `P3` when they only add local reading cost. A historical comparison is `P2` when it misstates current compatibility or can cause a wrong change, and `P3` when it only distracts from an otherwise clear current rule. Punctuation, method spacing, and wrapping findings are at most `P3`.

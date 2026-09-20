@@ -32,6 +32,36 @@
       ]
     },
     {
+      "id": "comment-describes-current-invariant",
+      "title": "A comment should not center an irrelevant historical input",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "fixture": "A changed encoder-selection comment says only the resolved content type selects the encoder and legacyFormat does not participate. The legacy field no longer exists in the current contract, data, or compatibility path.",
+      "expected_decisions": [
+        "Rewrite the comment from the positive current encoder-selection rule",
+        "Remove the legacyFormat comparison because a reader without the change history does not need it"
+      ],
+      "disallowed_decisions": [
+        "Keep the historical comparison merely because it is factually true",
+        "Ban all negative wording regardless of current contract relevance"
+      ]
+    },
+    {
+      "id": "comment-preserves-current-compatibility-fact",
+      "title": "A real compatibility role remains in the current comment",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "fixture": "A legacyFormat field is still accepted when reading stored configurations, but runtime encoder selection uses the resolved content type. Removing the compatibility fact would make the surviving field appear unused and safe to delete.",
+      "expected_decisions": [
+        "State the positive current encoder-selection rule",
+        "Retain legacyFormat in the comment and explain its present stored-configuration compatibility role"
+      ],
+      "disallowed_decisions": [
+        "Remove every mention of legacyFormat solely to avoid historical framing",
+        "Say only that legacyFormat does not participate without explaining why it still exists"
+      ]
+    },
+    {
       "id": "map-duplicate-policy",
       "title": "Map construction must expose duplicate selection policy",
       "mode": "review",

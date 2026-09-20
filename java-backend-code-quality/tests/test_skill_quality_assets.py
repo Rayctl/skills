@@ -73,6 +73,18 @@ class SemanticEvaluationValidationTests(unittest.TestCase):
             }.issubset(case_ids)
         )
 
+    def test_repository_catalog_covers_comment_framing_cases(self):
+        path = SKILL_ROOT / "evals" / "semantic-cases.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        case_ids = {case["id"] for case in payload["cases"]}
+
+        self.assertTrue(
+            {
+                "comment-describes-current-invariant",
+                "comment-preserves-current-compatibility-fact",
+            }.issubset(case_ids)
+        )
+
     def test_duplicate_case_id_is_invalid(self):
         payload = self.valid_payload()
         payload["cases"].append(dict(payload["cases"][0]))
