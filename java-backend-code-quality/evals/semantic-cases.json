@@ -18,6 +18,56 @@
       ]
     },
     {
+      "id": "retain-short-media-type-classifier",
+      "title": "A short classifier makes the encoding decision easier to read",
+      "mode": "review",
+      "triggers": ["method-design", "comments-and-javadoc"],
+      "fixture": "A changed caller uses isXmlContentType(type) to choose an XML encoder. The private helper returns false for null, then combines application/xml compatibility, text/xml compatibility, and +xml suffix recognition. A second helper isJsonContentType(type) combines JSON compatibility and +json suffix recognition in two lines; its caller checks null first. Each helper has one caller.",
+      "expected_decisions": [
+        "Allow both helpers to remain because they compose a coherent classification used by the caller",
+        "Compare readability in the real encoding decision rather than using line count or reuse count",
+        "Require concise documentation of recognition scope and the differing null contracts when absent",
+        "Preserve existing matching and null behavior"
+      ],
+      "disallowed_decisions": [
+        "Require expansion solely because a helper has two lines, a single expression, or one caller",
+        "Treat any is-prefixed method or multiple boolean operators as sufficient justification",
+        "Create a shared utility solely because both helpers can remain"
+      ]
+    },
+    {
+      "id": "expand-null-safe-schema-getter",
+      "title": "A null-safe field traversal adds no independent selection rule",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "fixture": "resolveRequestBodySchema(schema) has one caller and only returns null if schema or schema.getRequest() is null, otherwise schema.getRequest().getBody(). The caller uses the result to build a request; there are no implicit callers or other selection rules.",
+      "expected_decisions": [
+        "Recommend writing the null checks and field read at the caller because the data source and absence behavior become directly visible",
+        "Preserve null results for both missing schema and missing request",
+        "Distinguish this traversal from a helper that composes protocol-recognition rules"
+      ],
+      "disallowed_decisions": [
+        "Keep the helper solely by labeling field traversal a resolution contract",
+        "Treat one caller or short length as the deciding reason",
+        "Remove the null checks"
+      ]
+    },
+    {
+      "id": "composed-predicate-preserves-failure-reasons",
+      "title": "Multiple conditions do not automatically form a useful abstraction",
+      "mode": "review",
+      "triggers": ["method-design", "exception-communication"],
+      "fixture": "A changed branch calls isOrderProcessable(order), which combines an ownership check and a shipment-state check. A false result always throws Invalid order. Existing caller requirements distinguish permission denial from already-shipped conflict and give different recovery actions.",
+      "expected_decisions": [
+        "Reject the combined boolean boundary because the caller needs the distinct failure reasons",
+        "Preserve separate permission and state errors with their respective recovery actions"
+      ],
+      "disallowed_decisions": [
+        "Approve the helper merely because it combines multiple checks under a business-sounding name",
+        "Replace the distinct failures with a generic false result and message"
+      ]
+    },
+    {
       "id": "separate-adjacent-processing-stages",
       "title": "Adjacent calls with different responsibilities need separate intent comments",
       "mode": "review",

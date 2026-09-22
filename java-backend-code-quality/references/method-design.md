@@ -6,16 +6,18 @@ Read this reference when changed code adds, edits, extracts, wraps, reuses, or c
 
 For every in-scope private helper and every private field or constant extracted only to reuse a compact literal or expression, mentally replace its uses with the underlying body or value. Prefer the form that makes the current branch understandable with less navigation and exposes the evidence needed to verify behavior.
 
-Write compact logic or values directly at their use sites, regardless of use count, when doing so remains readable and reveals useful details such as:
+Write compact logic or values directly at their use sites, regardless of use count, when doing so makes the caller easier to understand and reveals useful details such as:
 
 - null handling, field sources, or the concrete values being compared
 - the actual predicate, component, remote client, or repository being called
 - the selected error category and exact caller-visible message at the branch that throws it
-- pure parameter forwarding, one-expression wrappers, or a few linear statements
+- pure parameter forwarding or short expressions and linear statements that add no useful concept beyond their underlying operations
 - a single guard followed by a simple assignment or direct call
 - local caller values that extraction merely turns into a long parameter list
 
 This applies even when the helper or value has three, eight, or more use sites. Repetition, DRY, a clear name, JavaDoc, centralized wording, a stable-policy label, fewer lines, or reuse count do not independently justify extraction. A long constant name summarizes a message but does not let a reader verify its exact wording, error category, or recovery advice. Allow small local duplication when it preserves branch evidence and reduces jumping.
+
+Body length and expression count are not deletion criteria either. Compare the actual caller in both forms: does the helper let the reader make the next decision using a meaningful concept, or merely force a jump to recover field sources, null handling, or an already named operation? Apply the short-rule criteria below before expanding a composed predicate.
 
 Typical helpers to write out at their use sites include:
 
@@ -42,6 +44,7 @@ At each call site, the expanded predicate shows the null rule and source fields,
 Retain a helper only when its separate boundary materially lowers call-site cognitive load or an external contract requires the method identity. Valid reasons include:
 
 - hiding non-trivial branching, iteration, an algorithm, or low-level mechanics
+- combining low-level checks into a useful business or protocol concept, including a short predicate, under the criteria below
 - owning enforceable transaction demarcation, resource acquisition and release, side-effect ordering, compensation, or a dynamic failure policy
 - classifying failures from context, converting exceptions while retaining the cause, or adding useful diagnostic data
 - satisfying a framework callback, annotation, reflection, serialization, or generated contract
@@ -51,6 +54,21 @@ Retain a field or constant when the value has an independent identity or externa
 A fixed exception code and message do not constitute a dynamic failure policy. A wrapper around one persistence or remote call does not own a meaningful boundary unless it also enforces transaction, ordering, compensation, lifecycle, or failure semantics.
 
 Before removing a helper, exclude framework, annotation, reflection, serialization, and other implicit callers. Do not delete a method based only on textual reference counts.
+
+## Short Methods That Express A Useful Rule
+
+A short predicate may remain when it actually combines checks into one coherent concept used by the caller, and expanding those checks distracts from the caller's decision. For example, `isXmlContentType` can group application/xml, text/xml, and structured +xml suffix recognition; `isJsonContentType` can group JSON compatibility matching and +json suffix recognition. Two lines or one caller do not remove that benefit.
+
+Compare these cases:
+
+- a content-type classifier composes recognition rules so the caller can choose an encoder or decoder without repeating media-type details
+- a null-safe Schema getter only traverses fields; writing it out exposes the data source and absence behavior
+- a helper that checks null, extracts two fields, and delegates to an existing named predicate usually adds no new classification rule; writing it out exposes the actual arguments
+- a fixed exception factory hides the error code and message needed to understand the failing branch
+
+A descriptive name or multiple boolean operators alone is insufficient. The grouped conditions must express one concept; do not group unrelated eligibility, authorization, or state checks if the caller needs their separate failure reasons or recovery actions. A newly extracted pure predicate must not conceal I/O, mutation, or failure handling.
+
+Verify that the name and contract match the actual accepted values, exclusions, and null behavior. Retain meaningful recognition details in concise JavaDoc when they are not evident from the name, including whether null is rejected or returns false. Do not silently change matching or null behavior to justify extraction. An isXxx prefix is not an exemption, and allowing a useful local helper does not itself justify introducing a shared utility or new class.
 
 ## Method Shape
 
