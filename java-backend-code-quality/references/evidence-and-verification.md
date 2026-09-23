@@ -34,11 +34,12 @@ Do not treat every nearby example as a project rule. Classify what supports a de
 - **observed behavior**: current source, executable tests, configuration, call paths, generated output, and reproducible tool results
 - **external contract**: official protocol, provider, framework, or dependency documentation confirmed for the version in use
 - **local convention**: repeated nearby patterns that are consistent but not declared as a contract
+- **local guidance**: deliberately recorded `.codex/project-guidance.md` hints that reduce repeated discovery but remain below current repository evidence
 - **recommendation**: a Skill default or engineering preference used when stronger evidence does not decide the issue
 
 Authority defines intended constraints; observed behavior establishes what the system currently does. Neither automatically overrides the other when they conflict. Surface the conflict and its impact instead of selecting whichever source is more convenient. Tests may preserve a bug, source may violate a published contract, and a common local pattern may still be unsafe.
 
-When applying a rule, state material evidence in the reasoning or finding. Do not present a recommendation as an existing repository standard. Examples illustrate a rule; they do not create a universal ban.
+When applying a rule, state material evidence in the reasoning or finding. Do not present local guidance or a recommendation as an existing repository standard. Local guidance may direct targeted verification and may beat a generic recommendation when stronger evidence is silent, but it cannot create a finding by itself. Examples illustrate a rule; they do not create a universal ban.
 
 ## Decide Under Uncertainty
 

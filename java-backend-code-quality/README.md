@@ -4,7 +4,7 @@
 
 ## 适用范围
 
-以下规则适用于本次变更中的 Java 生产代码和测试代码：
+以下硬性质量门禁适用于本次变更中的 Java 生产代码和测试代码：
 
 - 保持调用方观察到的空值、缺失、默认值、状态和异常行为不变
 - 方法和变量名称应让人在使用位置看懂具体对象、动作、状态和关键副作用
@@ -18,7 +18,14 @@
 - 修改既有代码前，从目标位置追踪相关调用、数据关系、日志、异常和测试；用户点名的字段或方法只是分析起点
 - 重要判断区分权威约束、实际行为、外部契约、局部惯例和默认建议，不能把偏好写成项目事实
 - formatter、代码生成、测试修复或 Git hook 改动文件后，重新读取最终 diff 和受影响文件，再报告验证结果
+
+以下是默认编码偏好，不得覆盖项目 formatter、`AGENTS.md`、正式文档或用户明确规则：
+
 - Java 注释结尾不使用中文或英文句号，方法声明之间只保留一行空行
+- 控制语句使用大括号，集合变量在有助于调用点理解时使用 `List`、`Set`、`Map` 后缀
+- 三元表达式只用于短纯值选择，较长表达式按项目行宽和可读性换行
+
+偏好只在没有更高优先级依据时作为默认建议；单纯偏好问题最高报告为 `P3`，不能把通用偏好写成所有 Java 项目的正式规范。
 
 检查范围默认限于当前任务的暂存、未暂存和未跟踪 Java 变更，也可以指定文件、行范围、提交或对比分支。不会报告未修改的历史代码、生成代码和第三方代码，但理解当前改动时可以读取它们。
 
@@ -28,6 +35,7 @@
 
 | 详细规则文件 | 什么时候读取 |
 | --- | --- |
+| [project-guidance.md](references/project-guidance.md) | Java 编码任务开始时，发现、初始化或核实本地项目提示；只读取与任务有关的章节 |
 | [method-design.md](references/method-design.md) | 短私有方法、复用常量或字段、方法拆分和包装、延迟执行 |
 | [structure-choice.md](references/structure-choice.md) | 编码时出现多个实现、不断增长的类型或状态分支、重复流程或分散的对象创建规则 |
 | [comments-and-javadoc.md](references/comments-and-javadoc.md) | 新增或修改类、方法、JavaDoc、注释、入口校验或包含多步处理的方法体 |
@@ -40,6 +48,16 @@
 | [checker.md](references/checker.md) | 基线、行范围、排除路径、范围歧义、CLI 错误和规则编号 |
 
 简单字段、协议常量或注解调整不需要读取异常和生命周期规则；用户能看到的异常文案常量属于异常处理的一部分，需要读取对应规则。代码涉及哪些情况，就要读取哪些详细规则，不能为了节省上下文而漏掉。
+
+## 本地项目提示
+
+Java 编码任务可以在仓库中使用本机专属的 `.codex/project-guidance.md`，记录稳定的项目提示，例如优先查看的日志入口、已有工具库、远程调用包装方式、常用验证命令和格式偏好。它不是项目正式规范，也不保存类清单、调用关系、依赖版本或字段含义等容易随代码变化的事实。
+
+文件不存在时，只有任务涉及日志、依赖、远程调用、异常处理或构建验证，Skill 才会询问是否初始化；单纯重命名、注释、局部判断和普通 CRUD 不会打扰用户。拒绝后本次任务继续正常检查且不再询问。创建前通过 `git rev-parse --git-path info/exclude`、`git check-ignore -v --no-index` 和 `git ls-files --error-unmatch` 确认路径确实是未跟踪的本地文件，不会修改仓库 `.gitignore`。
+
+文件中的所有内容都只是参考：当前构建配置、源码、测试、正式文档和用户要求优先。格式提示本身不会产生 `P2/P3`。Skill 先读取元数据和章节标题，再按任务只读取 `Logging`、`Dependencies And Utilities`、`Remote Calls`、`Exception Handling`、`Formatting And Naming` 或 `Build And Verification` 中需要的部分。
+
+`schema_version: 2` 为每个提示章节记录独立的 `verified_commits`。Skill 复用 `$git-latest-code-check` 已输出的本地提交，不重复访问远端；`CURRENT`、`AHEAD` 和 `UPDATED` 才能确认远端新鲜度，脏工作区警告或远端读取失败只能作为本地读取基线，不能刷新提示。章节基线无效，或其后修改了 Maven、Gradle、锁文件、日志及客户端基础设施时，只针对受影响部分重新读取当前证据。核实后必须先询问才更新对应章节，相关配置仍未提交时不推进基线。旧版单一 `verified_commit`、缺失或未知版本只能作为迁移线索，不能自动标记所有章节为最新。
 
 ## 关键规则示例
 
@@ -297,6 +315,7 @@ java-backend-code-quality/
 |   `-- openai.yaml
 |-- evals/
 |   |-- README.md
+|   |-- forward-evaluation-template.md
 |   `-- semantic-cases.json
 |-- references/
 |   |-- checker.md
@@ -307,18 +326,21 @@ java-backend-code-quality/
 |   |-- exception-communication.md
 |   |-- method-design.md
 |   |-- naming.md
+|   |-- project-guidance.md
 |   |-- remote-calls.md
 |   `-- structure-choice.md
 |-- scripts/
 |   |-- check_java_backend_style.py
 |   |-- validate_semantic_evals.py
+|   |-- validate_project_guidance.py
 |   `-- verify_skill_installation.py
 `-- tests/
     |-- test_check_java_backend_style.py
+    |-- test_project_guidance.py
     `-- test_skill_quality_assets.py
 ```
 
-README 面向安装和快速理解，引用文件保存完整规则，Python 脚本负责可确定的自动检查，`evals/` 保存需要结合语义判断的代表性场景。
+README 面向安装和快速理解，引用文件保存完整规则，Python 脚本负责可确定的自动检查，`evals/` 保存需要结合语义判断的代表性场景和独立评测模板。
 
 ## 样式检查器
 
@@ -356,9 +378,11 @@ py -3 "$env:USERPROFILE\.codex\skills\java-backend-code-quality\scripts\check_ja
 ```powershell
 py -3 ".\java-backend-code-quality\scripts\validate_semantic_evals.py" `
   ".\java-backend-code-quality\evals\semantic-cases.json"
+py -3 ".\java-backend-code-quality\scripts\validate_project_guidance.py" `
+  ".\codex\project-guidance.md"
 ```
 
-该命令只证明评测数据结构有效。要验证 Agent 行为，需要在没有继承原讨论结论的新会话或独立评测环境中运行场景，并按含义检查决策。
+该命令只证明评测数据结构有效。要验证 Agent 行为，需要在没有继承原讨论结论的新会话或独立评测环境中运行场景，并按含义检查决策。使用 [独立评测模板](evals/forward-evaluation-template.md) 记录有 Skill、无 Skill或旧版本的输出、断言证据、Token、耗时和实际加载的引用文件。重点覆盖语义邻域、分章节提示基线、日志和工具复用、异常原因拆分、短辅助方法、简单任务的按需加载及编码前结构建议。
 
 ## 验证
 

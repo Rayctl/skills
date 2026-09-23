@@ -85,6 +85,40 @@ class SemanticEvaluationValidationTests(unittest.TestCase):
             }.issubset(case_ids)
         )
 
+    def test_repository_catalog_covers_project_guidance_cases(self):
+        path = SKILL_ROOT / "evals" / "semantic-cases.json"
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        case_ids = {case["id"] for case in payload["cases"]}
+
+        self.assertTrue(
+            {
+                "missing-local-project-guidance",
+                "current-logging-guidance",
+                "existing-utility-guidance",
+                "guidance-conflicts-with-repository",
+                "formatting-guidance-is-advisory",
+                "stale-guidance-targeted-verification",
+                "guidance-excludes-volatile-code-facts",
+                "dirty-infrastructure-defers-guidance-baseline",
+                "section-guidance-baselines-do-not-cross-refresh",
+                "tracked-guidance-is-not-local-only",
+                "simple-java-task-skips-guidance-prompt",
+                "unconfirmed-remote-baseline-cannot-refresh-guidance",
+            }.issubset(case_ids)
+        )
+
+    def test_forward_cases_can_include_observable_assertions(self):
+        payload = json.loads(
+            (SKILL_ROOT / "evals" / "semantic-cases.json").read_text(encoding="utf-8")
+        )
+        cases = {
+            case["id"]: case
+            for case in payload["cases"]
+            if "assertions" in case
+        }
+        self.assertGreaterEqual(len(cases), 4)
+        self.assertTrue(all(case["assertions"] for case in cases.values()))
+
     def test_duplicate_case_id_is_invalid(self):
         payload = self.valid_payload()
         payload["cases"].append(dict(payload["cases"][0]))
@@ -118,6 +152,15 @@ class SemanticEvaluationValidationTests(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertEqual("expected_decisions_must_be_non_empty_list", result["reason"])
+
+    def test_optional_assertions_are_validated(self):
+        payload = self.valid_payload()
+        payload["cases"][0]["assertions"] = ["The answer includes evidence"]
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write_payload(temporary, payload)
+            code, result = self.run_main(path)
+        self.assertEqual(0, code)
+        self.assertEqual("VALID", result["status"])
 
     def test_unknown_reference_trigger_is_invalid(self):
         payload = self.valid_payload()

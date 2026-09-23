@@ -4,7 +4,7 @@
     {
       "id": "inline-short-predicate-despite-reuse",
       "title": "Repeated short predicate remains clearer at the call site",
-      "mode": "review",
+      "mode": "implementation",
       "triggers": ["method-design"],
       "fixture": "A private helper used three times only returns field != null && Catalog.isReference(field.getCode(), field.getPath()). The changed call sites rely on its null behavior.",
       "expected_decisions": [
@@ -297,6 +297,213 @@
         "Read the entire module before renaming the local variable",
         "Report unrelated historical code",
         "Ask the user to explain business behavior that the rename does not affect"
+      ]
+    },
+    {
+      "id": "missing-local-project-guidance",
+      "title": "Missing local guidance is offered once without blocking work",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "fixture": "A confirmed Git repository has no .codex/project-guidance.md. The user asks for a substantive Java implementation and declines the offer to initialize local guidance.",
+      "expected_decisions": [
+        "Ask once whether to initialize the local guidance file",
+        "Continue with normal targeted repository discovery after the user declines",
+        "Do not ask again during the same task"
+      ],
+      "disallowed_decisions": [
+        "Create the file or alter Git exclusions without approval",
+        "Block the implementation because optional guidance is absent"
+      ]
+    },
+    {
+      "id": "current-logging-guidance",
+      "title": "Current logging guidance narrows discovery without becoming proof",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "remote-calls"],
+      "fixture": "The relevant Logging hint names the preferred project logger. Its verified commit is an ancestor of the Git-check local baseline, no invalidating build or logging infrastructure path changed, and the affected class uses that logger nearby.",
+      "expected_decisions": [
+        "Use the Logging hint to avoid a repository-wide logging-framework scan",
+        "Confirm applicability at the affected class or boundary before using the logger",
+        "Treat the hint as advisory rather than a repository rule"
+      ],
+      "disallowed_decisions": [
+        "Load every project-guidance section",
+        "Report another logger as a finding based only on the hint"
+      ]
+    },
+    {
+      "id": "existing-utility-guidance",
+      "title": "Utility guidance prompts reuse only after API verification",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "fixture": "Dependencies And Utilities suggests checking an approved utility family before writing common conversion code. Current build evidence includes the dependency and the task needs such a conversion.",
+      "expected_decisions": [
+        "Inspect the dependency version and actual utility API relevant to the conversion",
+        "Reuse the existing utility when its verified behavior matches the task",
+        "Keep a direct implementation when the utility contract does not fit"
+      ],
+      "disallowed_decisions": [
+        "Call a guessed utility method based only on the guidance",
+        "Build a duplicate helper without checking the named utility family"
+      ]
+    },
+    {
+      "id": "guidance-conflicts-with-repository",
+      "title": "Current repository evidence overrides local guidance",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "evidence-and-verification"],
+      "fixture": "Local guidance recommends client A, but the current build configuration removed A and the affected module, tests, and formal repository instructions require client B.",
+      "expected_decisions": [
+        "Follow the current repository instructions and verified client B contract",
+        "Treat the local hint as outdated and explain the material conflict",
+        "Ask before refreshing the local guidance"
+      ],
+      "disallowed_decisions": [
+        "Reintroduce client A because the local file names it",
+        "Treat the local file as equal to formal repository instructions"
+      ]
+    },
+    {
+      "id": "formatting-guidance-is-advisory",
+      "title": "A local formatting hint does not create a quality finding",
+      "mode": "review",
+      "triggers": ["project-guidance"],
+      "fixture": "Formatting And Naming prefers one wrapping style, while the changed Java code follows the repository formatter and violates no formal instruction or deterministic Skill rule.",
+      "expected_decisions": [
+        "Treat the wrapping preference as optional local guidance",
+        "Accept the formatter-compliant code without a P2 or P3 finding"
+      ],
+      "disallowed_decisions": [
+        "Report a style violation solely from project-guidance.md",
+        "Describe the hint as a repository-wide mandatory convention"
+      ]
+    },
+    {
+      "id": "stale-guidance-targeted-verification",
+      "title": "Stale guidance triggers targeted verification",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "remote-calls"],
+      "fixture": "The guidance verified commit is missing, not an ancestor, or followed by Maven or Gradle dependency changes. The task adds a remote call and needs logging and client choices.",
+      "expected_decisions": [
+        "Treat the relevant dependency, logging, remote-call, and build hints as unverified",
+        "Inspect the changed descriptors, current remote-call infrastructure, and a representative use",
+        "Avoid scanning unrelated modules or loading unrelated guidance sections"
+      ],
+      "disallowed_decisions": [
+        "Trust the stale client and logging hints",
+        "Discard every hint and rescan the entire repository"
+      ]
+    },
+    {
+      "id": "guidance-excludes-volatile-code-facts",
+      "title": "Local guidance excludes code snapshots",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "fixture": "During initialization, repository exploration reveals current modules, class paths, dependency versions, call relationships, and a stable preference to check the shared utility family first.",
+      "expected_decisions": [
+        "Record only the stable utility preference as an advisory starting point",
+        "Keep modules, class paths, versions, and call relationships out of the local file",
+        "Direct enforceable requirements to AGENTS.md or formal project documentation"
+      ],
+      "disallowed_decisions": [
+        "Generate a repository structure or symbol snapshot in project-guidance.md",
+        "Present discovered source layout as a durable instruction"
+      ]
+    },
+    {
+      "id": "dirty-infrastructure-defers-guidance-baseline",
+      "title": "Uncommitted infrastructure changes prevent baseline advancement",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "fixture": "Targeted verification establishes the new logging choice, but the relevant pom.xml and logging configuration changes are still uncommitted. The user has not yet approved a guidance refresh.",
+      "expected_decisions": [
+        "Use current worktree evidence for the code task",
+        "Do not update the guidance or advance verified_commit without approval",
+        "Explain that the baseline cannot advance while relevant configuration remains uncommitted"
+      ],
+      "disallowed_decisions": [
+        "Set verified_commit to HEAD as if it included the uncommitted configuration",
+        "Silently rewrite the local guidance"
+      ]
+    },
+    {
+      "id": "section-guidance-baselines-do-not-cross-refresh",
+      "title": "Refreshing one guidance section does not refresh the others",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "prompt": "核实日志框架提示后，只刷新 Logging 章节",
+      "fixture": "A schema_version 2 project-guidance file has separate verified_commits. Logging was rechecked at the current local baseline, while Dependencies And Utilities was not inspected.",
+      "expected_decisions": [
+        "Update only the Logging verified commit after approval",
+        "Leave Dependencies And Utilities at its previous commit or unverified",
+        "Do not treat one section refresh as proof for all sections"
+      ],
+      "disallowed_decisions": [
+        "Copy the Logging commit into every section",
+        "Refresh metadata without user approval"
+      ],
+      "assertions": [
+        "The answer names the independently refreshed section",
+        "The answer preserves the unverified state of untouched sections"
+      ]
+    },
+    {
+      "id": "tracked-guidance-is-not-local-only",
+      "title": "An ignored path can still be tracked",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "prompt": "初始化项目提示文件并登记到 Git 本地排除",
+      "fixture": "git check-ignore --no-index matches .codex/project-guidance.md, but git ls-files also reports the path because it was committed previously.",
+      "expected_decisions": [
+        "Recognize that the path is tracked despite matching an exclude rule",
+        "Stop automatic local-only registration and tell the user the conflict",
+        "Do not silently create or refresh the file"
+      ],
+      "disallowed_decisions": [
+        "Treat check-ignore alone as proof that the file is untracked",
+        "Modify .gitignore automatically"
+      ],
+      "assertions": [
+        "The answer distinguishes ignore matching from index tracking"
+      ]
+    },
+    {
+      "id": "simple-java-task-skips-guidance-prompt",
+      "title": "A local rename does not prompt for project guidance",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "naming"],
+      "prompt": "只重命名一个局部变量，不改变行为",
+      "fixture": "The repository has no project-guidance.md. The task changes one private local variable name and does not touch logging, dependencies, remote calls, exceptions, or build verification.",
+      "expected_decisions": [
+        "Keep the project-guidance initialization prompt silent",
+        "Use focused local evidence and complete the rename"
+      ],
+      "disallowed_decisions": [
+        "Ask to initialize project guidance merely because the file is absent",
+        "Scan the whole repository"
+      ],
+      "assertions": [
+        "The answer does not ask for project-guidance initialization"
+      ]
+    },
+    {
+      "id": "unconfirmed-remote-baseline-cannot-refresh-guidance",
+      "title": "A local baseline with unknown remote freshness cannot refresh hints",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "evidence-and-verification"],
+      "prompt": "在远端不可访问但本地有改动时完成 Java 实现",
+      "fixture": "The Git check reports a dirty related worktree and remote unavailable, but emits the current local SHA. The task uses current source evidence and does not need to publish changes.",
+      "expected_decisions": [
+        "Use the local SHA as a reading baseline with remoteFreshness unconfirmed",
+        "Continue only related work while respecting the dirty-worktree warning",
+        "Do not advance project-guidance verified commits"
+      ],
+      "disallowed_decisions": [
+        "Claim that the remote is current",
+        "Refresh project guidance as if the baseline were remotely confirmed"
+      ],
+      "assertions": [
+        "The answer separately reports local baseline and remote freshness"
       ]
     }
   ]

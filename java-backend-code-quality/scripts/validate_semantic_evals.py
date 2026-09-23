@@ -23,6 +23,7 @@ KNOWN_TRIGGERS = {
     "exception-communication",
     "method-design",
     "naming",
+    "project-guidance",
     "remote-calls",
     "structure-choice",
 }
@@ -35,6 +36,7 @@ REQUIRED_CASE_FIELDS = {
     "expected_decisions",
     "disallowed_decisions",
 }
+OPTIONAL_CASE_FIELDS = {"assertions", "input_files", "prompt"}
 
 
 class EvaluationValidationError(ValueError):
@@ -86,7 +88,7 @@ def validate_catalog(payload: Any) -> int:
     for index, case in enumerate(cases, start=1):
         if not isinstance(case, dict):
             raise EvaluationValidationError("case_must_be_object", case_index=index)
-        if set(case) != REQUIRED_CASE_FIELDS:
+        if not REQUIRED_CASE_FIELDS.issubset(case) or set(case) - REQUIRED_CASE_FIELDS - OPTIONAL_CASE_FIELDS:
             raise EvaluationValidationError(
                 "case_fields_do_not_match_schema", case_index=index
             )
@@ -114,6 +116,15 @@ def validate_catalog(payload: Any) -> int:
         validate_string_list(
             case["disallowed_decisions"], "disallowed_decisions", case_index=index
         )
+        for optional_field in OPTIONAL_CASE_FIELDS:
+            if optional_field in case:
+                if optional_field == "prompt":
+                    if not non_empty_string(case[optional_field]):
+                        raise EvaluationValidationError(
+                            "prompt_must_be_non_empty_string", case_index=index
+                        )
+                else:
+                    validate_string_list(case[optional_field], optional_field, case_index=index)
 
     return len(cases)
 

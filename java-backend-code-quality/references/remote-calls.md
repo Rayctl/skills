@@ -4,6 +4,8 @@ Read this reference when changed Java code adds or changes an HTTP, Feign, RPC, 
 
 ## Establish The Local Contract
 
+If `.codex/project-guidance.md` exists, first read only its `Remote Calls` section and the `Logging` or `Exception Handling` section relevant to the task. Apply [project-guidance.md](project-guidance.md) before relying on those hints. A named logger, client, wrapper, or policy is a search starting point, not proof that it still owns the current path.
+
 Before coding, inspect the actual remote boundary and nearby repository conventions:
 
 - client configuration, interceptors, filters, aspects, wrappers, SDK logging, retry policy, and global exception handlers
