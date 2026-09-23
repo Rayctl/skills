@@ -19,14 +19,14 @@ Every guidance entry is advisory and cannot create a `P2` or `P3` finding by its
 Look only for `<repository>/.codex/project-guidance.md`.
 
 - If it exists, read frontmatter and level-two headings first, then read only sections relevant to the task
-- If it is absent, ask once only when the task touches one of the sections below and the user is implementing Java code
+- If it is absent, ask once when the task touches one of the sections below and the user is implementing Java code. This also applies when the trigger appears after implementation has started: pause before editing the newly affected area and re-evaluate the relevant sections
 - If the user declines, continue with normal targeted discovery and do not ask again during the task
 - Do not ask in review mode, explanatory questions, ordinary local style changes, or tasks without a confirmed Git worktree
 - Never create or refresh the file without explicit approval
 
 Relevant sections are `Logging`, `Dependencies And Utilities`, `Remote Calls`, `Exception Handling`, `Formatting And Naming`, and `Build And Verification`. A simple rename, comment-only change, local branch adjustment, or ordinary CRUD change does not by itself require initialization.
 
-When initialization is approved, use this shape and omit empty sections only when the user prefers:
+When initialization is approved, first confirm which relevant sections and stable hints should be recorded. For `Logging`, this may include the logger entry point, log ownership, payload policy, or a masking/redaction convention only when repository evidence or the user confirms one. Do not add a masking requirement merely because the file is being created. Use this shape and omit empty sections only when the user prefers:
 
 ```markdown
 ---
@@ -89,4 +89,3 @@ Invalidation means targeted verification, not a full repository scan. Read the c
 - build, test, lint, or run commands: `Build And Verification`
 
 Read the affected receiver, import, configuration, or version declaration to confirm that a hint applies. Do not load every section because the file exists.
-

@@ -35,7 +35,7 @@
 
 | 详细规则文件 | 什么时候读取 |
 | --- | --- |
-| [project-guidance.md](references/project-guidance.md) | Java 编码任务开始时，发现、初始化或核实本地项目提示；只读取与任务有关的章节 |
+| [project-guidance.md](references/project-guidance.md) | Java 编码任务开始或中途命中相关设施时，发现、初始化或核实本地项目提示；只读取与任务有关的章节 |
 | [method-design.md](references/method-design.md) | 短私有方法、复用常量或字段、方法拆分和包装、延迟执行 |
 | [structure-choice.md](references/structure-choice.md) | 编码时出现多个实现、不断增长的类型或状态分支、重复流程或分散的对象创建规则 |
 | [comments-and-javadoc.md](references/comments-and-javadoc.md) | 新增或修改类、方法、JavaDoc、注释、入口校验或包含多步处理的方法体 |
@@ -53,7 +53,7 @@
 
 Java 编码任务可以在仓库中使用本机专属的 `.codex/project-guidance.md`，记录稳定的项目提示，例如优先查看的日志入口、已有工具库、远程调用包装方式、常用验证命令和格式偏好。它不是项目正式规范，也不保存类清单、调用关系、依赖版本或字段含义等容易随代码变化的事实。
 
-文件不存在时，只有任务涉及日志、依赖、远程调用、异常处理或构建验证，Skill 才会询问是否初始化；单纯重命名、注释、局部判断和普通 CRUD 不会打扰用户。拒绝后本次任务继续正常检查且不再询问。创建前通过 `git rev-parse --git-path info/exclude`、`git check-ignore -v --no-index` 和 `git ls-files --error-unmatch` 确认路径确实是未跟踪的本地文件，不会修改仓库 `.gitignore`。
+文件不存在时，只有任务涉及日志、依赖、远程调用、异常处理或构建验证，Skill 才会询问是否初始化；如果编码中途才新增这类改动，也必须在编辑该部分前重新触发检查。询问内容应同时确认要初始化哪些章节、记录哪些稳定提示，以及仓库是否已有脱敏或报文记录约定；脱敏不是默认强制项。单纯重命名、注释、局部判断和普通 CRUD 不会打扰用户。拒绝后本次任务继续正常检查且不再询问。创建前通过 `git rev-parse --git-path info/exclude`、`git check-ignore -v --no-index` 和 `git ls-files --error-unmatch` 确认路径确实是未跟踪的本地文件，不会修改仓库 `.gitignore`。
 
 文件中的所有内容都只是参考：当前构建配置、源码、测试、正式文档和用户要求优先。格式提示本身不会产生 `P2/P3`。Skill 先读取元数据和章节标题，再按任务只读取 `Logging`、`Dependencies And Utilities`、`Remote Calls`、`Exception Handling`、`Formatting And Naming` 或 `Build And Verification` 中需要的部分。
 
