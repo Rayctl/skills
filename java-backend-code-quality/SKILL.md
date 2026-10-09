@@ -32,7 +32,7 @@ Read only the matching references:
 - [exception-communication.md](references/exception-communication.md): changed failures, messages, logs, `catch`, `finally`, or error mapping
 - [remote-calls.md](references/remote-calls.md): HTTP, Feign, RPC, SDK, request/response logging, parsing, mapping, or provider failures
 - [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md): transactions, cross-store behavior, async work, retries, caches, compensation, locks, resources, or non-obvious failure policy
-- [control-flow.md](references/control-flow.md): ternaries, branches, loops, braces, or long expressions
+- [control-flow.md](references/control-flow.md): ternaries, branches, repeated decisions, structural literals, loops, braces, or long expressions
 - [evidence-and-verification.md](references/evidence-and-verification.md): existing behavior or data semantics, related fields, legacy logic, evidence conflicts, or tools that rewrite files
 - [checker.md](references/checker.md): advanced scope, exact CLI behavior, errors, or rule identifiers
 

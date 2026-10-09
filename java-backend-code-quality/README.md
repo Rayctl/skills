@@ -44,7 +44,7 @@
 | [exception-communication.md](references/exception-communication.md) | 异常抛出或转换、用户可见文案及其常量、错误返回、失败日志、`catch` 或 `finally` |
 | [remote-calls.md](references/remote-calls.md) | HTTP、Feign、RPC、外部 SDK、请求响应日志、第三方错误解析或映射 |
 | [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md) | 事务、跨存储、异步调用、缓存、重试、补偿、锁和资源生命周期 |
-| [control-flow.md](references/control-flow.md) | 三元表达式、`if`/`else`/循环的大括号，以及较长表达式的换行 |
+| [control-flow.md](references/control-flow.md) | 三元表达式、重复判断与分支组织、结构数字含义、大括号及较长表达式换行 |
 | [evidence-and-verification.md](references/evidence-and-verification.md) | 修改既有行为或数据含义、分析关联字段和旧日志、证据冲突，以及工具可能改写最终代码 |
 | [checker.md](references/checker.md) | 基线、行范围、排除路径、范围歧义、CLI 错误和规则编号 |
 
@@ -266,6 +266,12 @@ if (user != null) {
     userName = user.getName();
 }
 ```
+
+同一个条件先用来校验，隔一段代码又用来执行时，先比较能否把这条路径的校验、取值和执行集中在一个分支，减少来回对应。例如拆分后的两部分分别是“前缀”和“本地名称”，可以在两部分分支内完成名称校验、前缀解析和结果创建。只把两个判断都改成 `hasPrefix` 并没有解决流程分散的问题。
+
+统一校验全部输入后再执行、必要的共享预校验，或中间状态已经变化时，可以保留重复判断。整理流程不得改变错误先后、空值、调用次数或副作用顺序；另一种合理写法本身不构成质量问题。
+
+`parts.length == 2` 中的 `2` 不必机械抽成常量。用 `prefix`、`localName` 等局部名称和必要注释说明结构；协议标识、独立限制或跨职责共享的约定仍可以使用常量。检查器不自动判断重复条件是否应该合并、数字含义是否清楚。最后回读代码时仍要检查这些内容和复杂三元表达式，不能只凭自动检查通过就结束。
 
 所有 `if`、`else`、`for`、`while` 和 `do while` 都使用大括号，即使分支只有一条语句。三元表达式是否影响业务理解由 Skill 结合语义判断，检查器只自动检查缺少大括号。
 

@@ -35,6 +35,8 @@ Optional alternative designs do not automatically constitute findings; semantic 
 
 Parameter meaning, object properties versus invocation or traversal context, flag-removal equivalence, and the benefit of nested classes or enums require semantic review. The checker does not count boolean literals to force enums or wrappers, reject all nested types, or establish that a project hint's named API or offline-build assumptions still apply.
 
+Repeated decisions, branch concentration, structural-literal meaning, and whether a named boolean improves the whole path require semantic review. The checker does not count repeated conditions or flag every numeric literal; a passing result does not exempt dense ternaries or scattered validation and execution from final review.
+
 ## Exit Codes
 
 - `0`: no violations for the selected scope

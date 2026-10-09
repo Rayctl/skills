@@ -805,6 +805,143 @@
         "Exempt genuinely opaque flags merely because alternative designs are optional"
       ],
       "assertions": ["A design discussion stays separate from findings against actual defects"]
+    },
+    {
+      "id": "concentrate-unchanged-shape-path",
+      "title": "One shape path is easier to follow in one branch",
+      "mode": "review",
+      "triggers": [
+        "control-flow"
+      ],
+      "prompt": "检查这个方法的分支组织是否容易读懂",
+      "fixture": "String[] parts is split once. A two-part branch validates parts[0] and parts[1] into a mutable validName flag; a shared guard rejects invalid names; a later identical parts.length == 2 branch resolves a prefix and creates the result. One-part names take a default path. No state changes or shared batch-validation requirement separates the tests. Bringing each shape's validation and creation together preserves error precedence and evaluation count.",
+      "expected_decisions": [
+        "Compare with one branch completing each mutually exclusive shape path",
+        "Recommend concentrating validation, named parts, resolution and creation when it reduces backtracking",
+        "Preserve invalid-input rejection, error precedence, null behavior and side effects"
+      ],
+      "disallowed_decisions": [
+        "Treat naming both repeated tests hasPrefix as sufficient to fix the scattered path",
+        "Require a helper or constant solely to eliminate repeated syntax"
+      ],
+      "assertions": [
+        "The finding identifies scattered responsibilities, not the mere count of identical tests"
+      ]
+    },
+    {
+      "id": "retain-prevalidation-before-all-actions",
+      "title": "Shared validation before side effects may justify repeated decisions",
+      "mode": "review",
+      "triggers": [
+        "control-flow"
+      ],
+      "prompt": "这两个循环都判断类型，是否应该合成一次处理？",
+      "fixture": "A first loop validates every input and rejects the entire request before any write. A second loop branches on the same input types and performs writes. The documented contract requires zero writes when any input is invalid. Both loops have clear phase comments.",
+      "expected_decisions": [
+        "Keep the prevalidation barrier before all writes",
+        "Allow repeated type decisions serving distinct required phases",
+        "Assign no readability finding solely because conditions repeat"
+      ],
+      "disallowed_decisions": [
+        "Combine validation and writes per item so earlier items write before a later validation fails",
+        "Duplicate shared validation only to reduce visible condition repetition"
+      ]
+    },
+    {
+      "id": "changing-state-must-be-rechecked",
+      "title": "A later condition can observe changed state",
+      "mode": "review",
+      "triggers": [
+        "control-flow",
+        "contracts-and-lifecycles"
+      ],
+      "prompt": "同一个条件判断了两次，能不能存成一个布尔变量？",
+      "fixture": "A changed method checks session.isReady(), performs a required session.refresh() which can change readiness, then checks session.isReady() again before dispatch. The caller contract requires dispatch only if readiness after refresh is true.",
+      "expected_decisions": [
+        "Retain the post-refresh readiness check or an equivalent fresh read",
+        "Distinguish changing state from an unchanged discriminator",
+        "Preserve refresh and dispatch ordering"
+      ],
+      "disallowed_decisions": [
+        "Cache the first readiness result and use it for the later branch",
+        "Merge the branches while changing the dispatch eligibility"
+      ]
+    },
+    {
+      "id": "structural-count-with-local-meaning",
+      "title": "A structural count can remain a local literal",
+      "mode": "review",
+      "triggers": [
+        "control-flow"
+      ],
+      "prompt": "parts.length == 2 的数字是否必须抽成常量？",
+      "fixture": "A changed parser supports either a single local name or prefix:localName. A nearby comment explains the two-part format and the two-part branch names parts[0] as prefix and parts[1] as localName. Unsupported counts and invalid parts are rejected. No independent limit or shared externally governed identity exists.",
+      "expected_decisions": [
+        "Allow the literal 2 because its structural relationship is visible",
+        "Keep meaningful local names and necessary format explanation",
+        "Assign no finding solely because the code contains a numeric literal"
+      ],
+      "disallowed_decisions": [
+        "Require a named constant, enum or helper for every count or array index",
+        "Remove invalid-count checks while simplifying"
+      ]
+    },
+    {
+      "id": "retain-governed-limit-constant",
+      "title": "Independent limits remain valid constants",
+      "mode": "review",
+      "triggers": [
+        "control-flow",
+        "method-design"
+      ],
+      "prompt": "这个限制常量要不要直接写回每个使用位置？",
+      "fixture": "MAX_ACCEPTED_RECORDS is a published service contract, enforced by validation and chunk scheduling in different components. Its exact value is governed independently of the local algorithm; no dynamic configuration requirement exists.",
+      "expected_decisions": [
+        "Allow the independently governed shared limit constant to remain",
+        "Distinguish a contract limit from a local shape literal"
+      ],
+      "disallowed_decisions": [
+        "Inline every use solely because numeric constants can add navigation",
+        "Invent a configuration mechanism without a current requirement"
+      ]
+    },
+    {
+      "id": "dense-null-allocation-ternary-after-checker",
+      "title": "Passing deterministic checks does not exempt dense ternaries",
+      "mode": "review",
+      "triggers": [
+        "control-flow"
+      ],
+      "prompt": "自动样式检查通过了，再看一下这段表达式",
+      "fixture": "The changed line is String[] nameParts = qualifiedName == null ? new String[0] : qualifiedName.split(\":\", -1);. No stronger repository formatter or instruction prescribes this ternary. The deterministic style checker reports no violations.",
+      "expected_decisions": [
+        "Apply the existing readability rule to null handling combined with allocation and a call",
+        "Prefer a braced if retaining the empty-array null result and split limit -1",
+        "Use at most P3 for local reading cost without evidence of a behavioral defect"
+      ],
+      "disallowed_decisions": [
+        "Accept the line solely because it fits one line or the checker passed",
+        "Remove the split limit and lose trailing empty parts",
+        "Treat a correct null branch as a proven bug"
+      ]
+    },
+    {
+      "id": "short-pure-choice-remains-ternary",
+      "title": "Simple ternaries remain allowed",
+      "mode": "review",
+      "triggers": [
+        "control-flow"
+      ],
+      "prompt": "是否所有三元表达式都要换成 if？",
+      "fixture": "The only changed expression is String statusText = enabled ? \"启用\" : \"停用\";. It is short, both values are obvious, has no null comparison, allocation, calls or effects, and conflicts with no repository rule.",
+      "expected_decisions": [
+        "Allow the short pure value choice to remain",
+        "Assign no finding merely because it uses a ternary"
+      ],
+      "disallowed_decisions": [
+        "Expand all ternaries mechanically",
+        "Add helpers or temporary objects to represent two clear labels"
+      ]
     }
   ]
 }
