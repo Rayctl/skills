@@ -505,6 +505,306 @@
       "assertions": [
         "The answer separately reports local baseline and remote freshness"
       ]
+    },
+    {
+      "id": "literal-boolean-call-readability",
+      "title": "Literal flag sequences require call-site meaning review",
+      "mode": "review",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "检查这个新增调用是否容易理解：validateNode(node, false, true, false)",
+      "fixture": "An application validator accepts flags for a fixed document region, root identity, and ancestor state. Several changed entry calls pass adjacent boolean literals with no readable indication of their separate meaning.",
+      "expected_decisions": [
+        "Identify the different responsibilities of the flags at the call site",
+        "Consider removing invariant parameters or a lightweight named location while keeping true traversal state separate",
+        "Use P3 for reading cost alone and impact-based severity when swapped flags can change validation"
+      ],
+      "disallowed_decisions": [
+        "Approve the call solely because parameter JavaDoc exists",
+        "Ban every boolean parameter or create a carrier solely from the flag count"
+      ],
+      "assertions": [
+        "The review explains what meaning is hidden rather than counting true and false values"
+      ]
+    },
+    {
+      "id": "dynamic-flags-and-required-signatures",
+      "title": "Readable dynamic booleans and required interfaces can remain",
+      "mode": "implementation",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "检查是否需要替换这些布尔参数：setEnabled(true)、walk(child, inheritedEnabled)、vendorClient.setOption(false)",
+      "fixture": "setEnabled is an existing obvious switch. inheritedEnabled is dynamic ancestor-derived state needed by recursion. vendorClient implements a fixed third-party API; a framework callback also has a required boolean parameter.",
+      "expected_decisions": [
+        "Keep the obvious switch and required third-party and framework signatures",
+        "Preserve named dynamic traversal state when deriving it from the child would change behavior"
+      ],
+      "disallowed_decisions": [
+        "Add wrappers or enums only to eliminate all booleans",
+        "Treat constant arguments to an external signature as removable parameters"
+      ],
+      "assertions": [
+        "The proposal retains legitimate boolean uses without wrapper proliferation"
+      ]
+    },
+    {
+      "id": "constant-private-parameter",
+      "title": "Invariant application-controlled parameters have no speculative extension exemption",
+      "mode": "implementation",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "简化私有校验入口：validateRequestBody(body, \"request.body\")",
+      "fixture": "Every relevant caller passes request.body to a private request-only validator. There are no implicit callers, external signature contracts, or current requirements for other paths. A separate recursive method carries genuinely changing descendant paths.",
+      "expected_decisions": [
+        "Remove the invariant entry parameter and keep the fixed value at its owner",
+        "Retain the changing recursive path and preserve diagnostics"
+      ],
+      "disallowed_decisions": [
+        "Keep the invariant parameter for possible future reuse",
+        "Replace a fixed string with a fixed enum parameter without reducing redundancy",
+        "Remove the recursive path merely because the entry path is constant"
+      ],
+      "assertions": [
+        "The design distinguishes the invariant entry value from dynamic descendant values"
+      ]
+    },
+    {
+      "id": "location-versus-ancestor-state",
+      "title": "Object properties cannot replace distinct invocation or traversal context",
+      "mode": "implementation",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "用节点属性替换校验参数，并减少祖先状态传递",
+      "fixture": "The same tree-node type can occur in request headers or body. A parent conversion flag clears child flags before a later attributes check, so the child's current flag cannot identify whether it is inside a converted subtree. Arrays and nested objects participate in cleanup.",
+      "expected_decisions": [
+        "Keep fixed invocation location separate from node-owned properties",
+        "Preserve ancestor semantics explicitly or use an equivalent subtree traversal",
+        "Verify root and array boundaries, cleanup, validation order, null handling, error category and message"
+      ],
+      "disallowed_decisions": [
+        "Add header or body location to the reusable node only to avoid a parameter",
+        "Infer converted-subtree state from the cleared child flag",
+        "Claim equivalence solely from the final serialized tree"
+      ],
+      "assertions": [
+        "The plan accounts for ancestor state after child flags are cleared"
+      ]
+    },
+    {
+      "id": "location-enum-preserves-explicit-entries",
+      "title": "A location enum does not require selectors or automatic traversal",
+      "mode": "implementation",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "六个显式位置调用的字符串容易写错，改为有含义的位置类型",
+      "fixture": "Six fixed validation entry calls already expose their source objects and required order. An enum can describe those regions, while dynamic paths remain strings. No requirement asks for a generic node selector or configurable execution pipeline.",
+      "expected_decisions": [
+        "Use a lightweight named location with the existing explicit calls",
+        "Keep dynamic field paths and traversal state separate",
+        "Compare total navigation and type cost before expanding structure"
+      ],
+      "disallowed_decisions": [
+        "Introduce node selectors, enum-owned validation and values-based execution solely to hide flags",
+        "Change validation or error order during the readability refactor"
+      ],
+      "assertions": [
+        "The proposal preserves explicit source selection and entry order"
+      ]
+    },
+    {
+      "id": "nested-flag-carrier-adds-navigation",
+      "title": "A one-use inner parameter bag does not improve the call",
+      "mode": "review",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "检查为替换三个开关新增的内部参数类是否值得保留",
+      "fixture": "A newly added non-static inner class has only three boolean fields and no behavior. It is instantiated once only to call a validator. Direct named local values or an existing location type would reveal the same facts with less navigation.",
+      "expected_decisions": [
+        "Prefer direct values or an existing meaningful type over the flag bag",
+        "Explain the default nesting preference as P3 when the only consequence is reading cost",
+        "Check whether an enclosing-instance reference is actually needed"
+      ],
+      "disallowed_decisions": [
+        "Move the same unnecessary bag to a new public file merely to avoid nesting",
+        "Claim every non-static inner class is already a proven memory leak",
+        "Keep it solely because the method signature becomes shorter"
+      ],
+      "assertions": [
+        "The review addresses usefulness before deciding where to put the class"
+      ]
+    },
+    {
+      "id": "retain-cohesive-nested-types",
+      "title": "Useful static nesting and required Builder identities are allowed",
+      "mode": "review",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "检查新增的静态嵌套游标类和标准 Builder 是否需要拆文件",
+      "fixture": "A static nested cursor encapsulates a non-trivial traversal algorithm used only by its enclosing parser; reading its algorithm beside the parser is clearer. A standard single-product Builder follows an established framework contract. Neither needs an enclosing instance.",
+      "expected_decisions": [
+        "Allow the cohesive static cursor and contract-backed Builder to remain",
+        "Evaluate benefit and contract rather than a categorical nesting ban"
+      ],
+      "disallowed_decisions": [
+        "Require separate files merely because these are nested types",
+        "Convert static types into non-static types without an actual outer-instance need"
+      ],
+      "assertions": [
+        "The review permits demonstrated cohesion and framework exceptions"
+      ]
+    },
+    {
+      "id": "independent-type-keeps-visibility-and-scope",
+      "title": "Independent types keep minimal visibility and do not activate legacy cleanup",
+      "mode": "implementation",
+      "triggers": [
+        "method-design"
+      ],
+      "prompt": "调整本次新增的位置枚举的归属，保留未修改的历史类型",
+      "fixture": "A newly added nested location enum has an independent contract shared by two classes in one package and should be top-level. An unrelated historical private nested state class is unchanged. There are no public API or cross-package consumers.",
+      "expected_decisions": [
+        "Place the independent enum in a separate file with package visibility",
+        "Leave the unrelated historical nested state class as context"
+      ],
+      "disallowed_decisions": [
+        "Make the enum public solely because it moved to its own file",
+        "Refactor all existing nested types encountered while reading the class"
+      ],
+      "assertions": [
+        "The change keeps minimal necessary visibility and task scope"
+      ]
+    },
+    {
+      "id": "guidance-records-lookup-not-api",
+      "title": "Approved hints identify a lookup entry without caching API behavior",
+      "mode": "implementation",
+      "triggers": [
+        "project-guidance"
+      ],
+      "prompt": "记录项目工具类提示，方便以后优先复用已有实现",
+      "fixture": "The user approved a utility hint. An existing EncodingTool is a useful lookup entry, but a proposed hint lists appendSegment(String, String) and its null, escaping and delimiter behavior as a ready-to-use recipe.",
+      "expected_decisions": [
+        "Record the approved utility name as a lookup entry",
+        "Omit the signature, behavior snapshot and invocation recipe",
+        "Verify the current implementation or dependency API before later use"
+      ],
+      "disallowed_decisions": [
+        "Forbid naming any utility because class inventories are prohibited",
+        "Treat a verified commit as proof that a cached signature remains applicable"
+      ],
+      "assertions": [
+        "The proposed hint gives a search starting point without storing an API contract"
+      ]
+    },
+    {
+      "id": "offline-verification-is-conditional",
+      "title": "One successful cached build does not establish an offline default",
+      "mode": "implementation",
+      "triggers": [
+        "project-guidance"
+      ],
+      "prompt": "把刚刚成功的 Maven 定向测试命令记录为本地验证提示",
+      "fixture": "The user approved Build And Verification hints. One run used mvn -o with cached dependencies. Later tasks may add dependencies or require SNAPSHOT updates; there is no permanent offline-build policy.",
+      "expected_decisions": [
+        "Record the ordinary targeted test entry without offline mode as the default",
+        "Document offline mode only when required artifacts are cached and updates are unnecessary",
+        "State cache and skipped-verification conditions rather than treating one run as a permanent rule"
+      ],
+      "disallowed_decisions": [
+        "Make offline mode unconditional based on the previous successful run",
+        "Use skipped tests as proof of test coverage"
+      ],
+      "assertions": [
+        "The guidance distinguishes the stable command from temporary environment assumptions"
+      ]
+    },
+    {
+      "id": "missing-guidance-section-targeted-offer",
+      "title": "Existing guidance does not confirm missing logging hints",
+      "mode": "implementation",
+      "triggers": [
+        "project-guidance"
+      ],
+      "prompt": "编码中途发现需要加一条日志，仓库已有项目提示文件",
+      "fixture": "The local guidance has only user-approved utility and build sections. The task now needs logging. No Logging section or baseline exists, and the user has not approved adding it or established masking requirements.",
+      "expected_decisions": [
+        "Recompute triggers before editing logs and inspect the actual logger and relevant repository rules",
+        "Treat the missing Logging section as unverified and ask once if stable logging hints should be added",
+        "Confirm what to record without assuming masking is mandatory; if declined, continue targeted discovery without repeating the offer",
+        "Leave utility and build baselines unchanged"
+      ],
+      "disallowed_decisions": [
+        "Treat guidance file existence as proof that logging is already confirmed",
+        "Choose native SLF4J without checking the project's logging entry",
+        "Create the section without approval or require masking merely because hints are being added"
+      ],
+      "assertions": [
+        "The proposal discovers logging separately and does not certify or load unrelated sections"
+      ]
+    },
+    {
+      "id": "guidance-invalid-section-commits",
+      "title": "Metadata shape does not establish valid section commits",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "prompt": "核实项目提示，只刷新我授权的 Logging 章节",
+      "fixture": "Git handoff is CURRENT with confirmed freshness at local L. The v2 metadata validator returns VALID. Logging records a well-formed SHA absent from local Git; Dependencies And Utilities records an existing commit not ancestral to L. The user approves rechecking and refreshing only Logging. Relevant infrastructure is committed.",
+      "expected_decisions": [
+        "Treat both section baselines as unverified despite valid metadata shape",
+        "Check local commit resolution and ancestry without fetching solely to validate old hints",
+        "Verify current logging evidence directly and refresh only authorized Logging at L",
+        "Leave the utility baseline unchanged and unverified"
+      ],
+      "disallowed_decisions": [
+        "Treat a failed or empty baseline diff as evidence that hints are current",
+        "Advance other section baselines because Logging was reverified"
+      ],
+      "assertions": ["The decision separates metadata format from Git validity and section authorization"]
+    },
+    {
+      "id": "confirmed-dirty-business-allows-section-refresh",
+      "title": "Unrelated business edits do not invalidate confirmed remote freshness",
+      "mode": "implementation",
+      "triggers": ["project-guidance"],
+      "prompt": "日志提示已重新核实，请只更新 Logging 的基线",
+      "fixture": "Git handoff is CURRENT, remoteFreshness=confirmed, dirty=true at local L. The only uncommitted change is unrelated ordinary business Java code. Logging configuration and infrastructure are committed and have been reverified; the user authorizes refreshing Logging. No other chapter was rechecked.",
+      "expected_decisions": [
+        "Keep confirmed remote freshness separate from the dirty flag",
+        "Permit the authorized Logging refresh at L after exclusion and tracking checks",
+        "Preserve all unrelated section baselines"
+      ],
+      "disallowed_decisions": [
+        "Convert remoteFreshness to unconfirmed solely because dirty=true",
+        "Require committing unrelated business edits before updating Logging",
+        "Allow baseline advancement when relevant logging infrastructure is uncommitted"
+      ],
+      "assertions": ["Refresh eligibility depends on freshness and relevant infrastructure, not overall cleanliness alone"]
+    },
+    {
+      "id": "clear-path-strings-optional-enum-no-finding",
+      "title": "Another valid representation alone does not warrant a severity",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "prompt": "这六处显式校验调用的位置字符串要不要改成枚举？",
+      "fixture": "Six explicit calls use clear location strings such as request.body and response.headers. Entry order, processed data and argument meaning are visible. There is no required typed contract, observed typo, ambiguous positional boolean, or documented maintenance defect. The user asks about an enum as a possible improvement.",
+      "expected_decisions": [
+        "Allow the clear existing calls to remain",
+        "Discuss an enum's costs and benefits as an optional improvement",
+        "Assign no P2 or P3 solely because a typed alternative exists"
+      ],
+      "disallowed_decisions": [
+        "Report a readability finding without concrete evidence",
+        "Invent a typed-contract requirement or expand to a selector pipeline",
+        "Exempt genuinely opaque flags merely because alternative designs are optional"
+      ],
+      "assertions": ["A design discussion stays separate from findings against actual defects"]
     }
   ]
 }

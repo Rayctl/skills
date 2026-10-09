@@ -17,7 +17,7 @@ Before implementation, treat the named class, method, or field as the starting p
 
 ## Git Baseline And Project Hints
 
-Reuse the full `local` commit from a successful `$git-latest-code-check` result; do not rerun the remote check. `CURRENT`, `AHEAD`, and `UPDATED` confirm remote freshness. A dirty warning or failed remote read may provide a local reading baseline, but its `remoteFreshness` is `unconfirmed` and cannot refresh local project guidance.
+Reuse the full `local` commit from `$git-latest-code-check`; do not rerun it. `CURRENT`, `AHEAD`, and `UPDATED` confirm remote freshness even with `dirty=true`. Unconfirmed freshness or uncommitted relevant infrastructure blocks guidance baseline refresh; unrelated business edits alone do not.
 
 For implementation in a confirmed Git worktree, read [references/project-guidance.md](references/project-guidance.md) when the task touches logging, dependencies or utilities, remote calls, exception handling, formatting, or build verification. Recompute these triggers during implementation: if a new log, dependency, remote client, exception path, or build change appears after planning, pause before editing that area, load the matching reference, and apply the project-guidance flow. If guidance is missing, ask once whether to initialize the relevant sections and which stable hints to record, such as logger entry points, utility or wrapper choices, error-handling conventions, build commands, or a repository-confirmed masking policy. Do not assume masking or redaction is mandatory without evidence. Never create or refresh it without approval. Load only relevant sections. A simple rename, comment-only change, local branch adjustment, or ordinary CRUD change does not trigger initialization.
 
@@ -25,7 +25,7 @@ For implementation in a confirmed Git worktree, read [references/project-guidanc
 
 Read only the matching references:
 
-- [method-design.md](references/method-design.md): private helpers, compact fields or constants, wrappers, deferred work, or method-granularity questions
+- [method-design.md](references/method-design.md): private helpers, compact fields or constants, wrappers, deferred work, parameter meaning or shape, added or edited nested types, or method-granularity questions
 - [structure-choice.md](references/structure-choice.md): growing implementations, repeated varying flows, scattered creation, or runtime-selected behavior during implementation
 - [comments-and-javadoc.md](references/comments-and-javadoc.md): changed classes, methods, JavaDoc, comments, guard clusters, or non-trivial method bodies
 - [naming.md](references/naming.md): broad names, state or collection vocabulary, enum lookups, renames, `normalize`, or unclear caller responsibility
@@ -41,7 +41,7 @@ Read only the matching references:
 These are hard quality gates for changed behavior:
 
 - preserve caller-visible null, empty, absent, default, state, and exception semantics
-- make names and call sites reveal the subject, action, result, and meaningful side effects; expose collection key/cardinality and duplicate policy
+- make names and call sites reveal the subject, action, result, parameter meaning, and meaningful side effects; expose collection key/cardinality and duplicate policy
 - trace related values through validation, mapping, serialization, persistence, remote calls, caches, logs, errors, and outputs
 - assign clear owners and safe ordering for validation, state transitions, persistence, cleanup, delayed work, retries, compensation, and resources
 - do not hide meaningful I/O, mutation, fallback, retry, compensation, cleanup, or lifecycle changes inside an apparently pure calculation
@@ -59,6 +59,7 @@ These are default coding preferences, subordinate to project formatter, `AGENTS.
 - control-flow bodies use braces
 - collection variables expose `List`, `Set`, or `Map` where that improves call-site reading
 - dense ternaries become braced `if` statements; line wrapping follows project limits and scanability
+- prefer direct values or independent types over nested classes, local classes, and nested enums unless nesting clearly improves cohesion or satisfies a contract
 
 A preference-only violation is at most `P3`; a contract, lifecycle, diagnostic, security, or unsafe-maintenance consequence may be `P2` or higher. The preference layer never overrides stronger repository evidence.
 
@@ -70,6 +71,6 @@ Before changing production behavior, quietly check whether the current task adds
 
 Test changed input, output, absence, failure, and state semantics. After formatter, generator, hook, test repair, or any other file-changing tool, reread status, final task diff, affected files, recompute reference triggers, and rerun invalidated checks. Separate passed checks from checks that did not run or could not start.
 
-Use `P0` for data loss, security exposure, or system-wide outage; `P1` for likely incorrect behavior, lifecycle leaks, or broken contracts; `P2` for hidden semantics, misleading recovery, unsafe disclosure, or unsafe maintenance; `P3` for local clarity or preference style. Before closing, recheck scope, callers, names, method design, JavaDoc, stages, catches, errors, diagnostics, remote and lifecycle rules, tests, checker output, and residual risks.
+Assign findings to evidenced violations or concrete problems, not merely to another valid design or a requested improvement. Use `P0` for data loss, security exposure, or system-wide outage; `P1` for likely incorrect behavior, lifecycle leaks, or broken contracts; `P2` for hidden semantics, misleading recovery, unsafe disclosure, or unsafe maintenance; `P3` for local clarity or preference style. Before closing, recheck scope, callers, names, method design, JavaDoc, stages, catches, errors, diagnostics, remote and lifecycle rules, tests, checker output, and residual risks.
 
 Semantic cases under `evals/` are forward tests, not proof from JSON structure alone. The deterministic checker cannot judge natural-language quality, helper extraction, structure choice, semantic neighborhoods, error mapping, logging disclosure, or other meaning-dependent decisions.

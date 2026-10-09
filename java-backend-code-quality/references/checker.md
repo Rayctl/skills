@@ -31,6 +31,10 @@ The guard rule permits pure local-value extraction between guards. `STYLE-BRACE-
 
 Short predicates that compose a useful business or protocol rule must be distinguished from null-safe getters and delegation wrappers by semantic review. The checker does not decide extraction from line count, boolean-operator count, naming prefixes, or reuse count.
 
+Optional alternative designs do not automatically constitute findings; semantic review must identify an evidenced violation or concrete problem before assigning severity. Guidance metadata validation does not check Git commit existence, ancestry, remote freshness, or infrastructure changes.
+
+Parameter meaning, object properties versus invocation or traversal context, flag-removal equivalence, and the benefit of nested classes or enums require semantic review. The checker does not count boolean literals to force enums or wrappers, reject all nested types, or establish that a project hint's named API or offline-build assumptions still apply.
+
 ## Exit Codes
 
 - `0`: no violations for the selected scope

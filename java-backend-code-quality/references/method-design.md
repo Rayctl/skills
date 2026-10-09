@@ -1,6 +1,6 @@
 # Method Design And Small Abstractions
 
-Read this reference when changed code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper; extracts compact logic or literals into a private field or constant; introduces deferred execution; or raises an abstraction-granularity question. Do not load it for annotations, imports, independent contract constants, or already clear framework methods.
+Read this reference when changed code adds, edits, extracts, wraps, reuses, or calls an application-defined private helper; extracts compact logic or literals into a private field or constant; introduces deferred execution; designs or changes parameters; adds or edits a nested class, local class, or nested enum; or raises an abstraction-granularity question. Do not load it for annotations, imports, independent contract constants, or already clear framework methods unless their changed use makes parameter meaning unclear.
 
 ## Compare With The Code At Its Use Sites
 
@@ -76,12 +76,40 @@ Use intermediate values and parameters only when they expose a real processing s
 
 Use deferred functions only when a lock, retry, transaction, cache, fallback, or asynchronous API genuinely requires deferred execution. Verify when and how often the function runs, which state it captures, and whether exception behavior remains unchanged.
 
-Remove booleans that are always passed with one value. Use an enum when stable states have distinct behavior. Group parameters only when they form a cohesive value with an independent contract.
-
 Do not hide meaningful I/O, mutation, retry, fallback, compensation, or cleanup behind a method that appears to be a pure calculation or predicate. Method names and boundaries must expose caller-relevant effects.
+
+## Make Parameters Understandable At Calls
+
+Read the changed call without entering the implementation. Adjacent boolean arguments, especially literal sequences such as `validateNode(node, false, true, false)`, require review because positional values can hide different responsibilities or invite swaps. Judge their actual meaning, not a fixed flag count. A clearly named dynamic boolean, an obvious single switch such as `setEnabled(true)`, or a framework or third-party signature can remain; do not introduce wrappers merely to remove booleans.
+
+Separate three kinds of information:
+
+- object properties: derive them from the existing object only when that object actually owns the fact
+- invocation context: fixed regions, roles, or modes can use an existing or lightweight named enum; do not attach a request position or policy to a reusable domain object solely for this call
+- traversal state: ancestor conditions and root identity may differ from the current node's properties; preserve them explicitly or simplify traversal only when equivalent behavior is demonstrated
+
+Remove an application-controlled parameter whose relevant callers always pass one value and which has no present variation requirement, after checking implicit callers and signature contracts. This applies to fixed paths and other values as well as booleans. Preserve externally required signatures. Retain genuine dynamic state with clear names; group parameters only when they form a cohesive value with an independent contract.
+
+Keep readable explicit entry calls when they already reveal the processed regions and order. A location enum should describe location; it need not also select nodes, run validation, or own changing traversal state. Do not add selectors, automatic loops, short forwarding methods, or parameter carriers solely to hide literal flags. Compare the whole proposed change with the original call, including new navigation and types.
+
+When eliminating traversal flags, verify ancestor versus current-node behavior, subtree and array boundaries, cleanup, validation order, null semantics, and error category and message. Equivalent final output alone does not prove equivalent validation or failure behavior.
+
+## Default To Fewer Nested Types
+
+Apply this preference to new or edited non-static inner classes, static nested classes, local classes, and nested enums. First consider direct local values or an existing type. A type with an independent responsibility normally belongs in a separate file with the minimum visibility needed by its callers; moving it out must not make it a public API by default. Do not replace a tiny temporary carrier with a separate file merely to satisfy this preference.
+
+Nesting may remain when the type truly belongs to its enclosing implementation and reading the non-trivial behavior together reduces navigation, or when a meaningful Builder or a framework contract requires that identity. A one-place flag bag, fewer files, or access to outer fields alone does not justify nesting. If outer-instance access is unnecessary and the language permits it, prefer a static nested type to avoid an implicit enclosing-instance reference.
+
+Ordinary tests and mocks do not trigger a type hierarchy rewrite; framework-required nested tests can remain. This is a default preference subordinate to formal project conventions and explicit user rules, not a categorical ban.
 
 ## Scope And Severity
 
 A helper is in scope when the current change creates or edits it or when a changed call site continues to use it. A field or constant is in scope only when the change creates or edits it as a compact reuse abstraction, or a changed use site relies on it in that role. Read unchanged declarations only as context and do not expand the review into unrelated historical abstractions.
 
+For parameters, examine changed application-defined signatures and calls plus only the declarations needed to understand them. For nested types, examine only types added or edited by this task; using an unchanged nested type does not activate a historical nesting cleanup.
+
 Report a needless extraction as `P2` when it conceals ordering, side effects, failure policy, lifecycle ownership, different failure causes, error categories, recovery actions, or information needed to judge correctness. Use `P3` when it only adds navigation and local reading cost.
+
+Assign a finding only to an evidenced rule violation or concrete readability or behavior problem. Another valid representation or a user-requested improvement alone is not a `P2` or `P3` issue. Clear fixed path strings can remain without a required typed contract or demonstrated defect; an enum may be discussed as an option without grading the existing form. This does not exempt opaque flags, hidden semantics, or applicable explicit/default rules.
+
+Use `P3` for unclear parameter presentation or unjustified nesting that only affects reading. A preference-only nesting issue is at most `P3`; wrong flag semantics, changed validation order, unintended object retention, or other demonstrated behavior and lifecycle risks follow impact-based severity.
