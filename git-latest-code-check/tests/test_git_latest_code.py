@@ -148,6 +148,7 @@ class GitLatestCodeTests(unittest.TestCase):
             git_directory / "FETCH_HEAD",
             git_directory / "packed-refs",
         ]
+        paths.extend(path for path in git_directory.rglob("*") if path.is_file())
         for folder in (git_directory / "refs", git_directory / "logs" / "refs"):
             if folder.exists():
                 paths.extend(path for path in folder.rglob("*") if path.is_file())
@@ -155,6 +156,23 @@ class GitLatestCodeTests(unittest.TestCase):
             str(path.relative_to(git_directory)): path.read_bytes() if path.exists() else None
             for path in sorted(set(paths))
         }
+
+    def readonly_snapshot(self) -> tuple[dict, dict]:
+        return self.git_metadata_snapshot(), {
+            str(path.relative_to(self.worktree)): path.read_bytes()
+            for path in self.worktree.rglob("*")
+            if path.is_file() and ".git" not in path.relative_to(self.worktree).parts
+        }
+
+    def assert_readonly(self, command: str, status: str, code: int, *args: str) -> None:
+        before = self.readonly_snapshot()
+        result = self.run_tool(command, None, *args)
+        self.assertEqual(code, result.returncode, result.stdout + result.stderr)
+        self.assertIn(f"STATUS {status}", result.stdout)
+        self.assertEqual(before, self.readonly_snapshot())
+
+    def push_check(self, status: str, code: int, branch: str = "main") -> None:
+        self.assert_readonly("verify-push", status, code, "--remote", "origin", "--branch", branch)
 
     def test_check_current_is_read_only_and_supports_spaces(self) -> None:
         before = self.git_metadata_snapshot()
@@ -468,6 +486,323 @@ class GitLatestCodeTests(unittest.TestCase):
         self.assertEqual(1, result)
         self.assertEqual(2, call_count)
         self.assertIn("STATUS REMOTE_MOVED", output.getvalue())
+
+    def test_missing_branch_with_stale_and_pruned_tracking_clean_and_dirty(self) -> None:
+        self.git(self.remote, "update-ref", "-d", "refs/heads/main")
+        for pruned in (False, True):
+            if pruned:
+                self.git(self.worktree, "fetch", "--prune", "origin")
+            for dirty in (False, True):
+                path = self.worktree / "dirty.txt"
+                if dirty:
+                    path.write_text("existing work\n", encoding="utf-8")
+                for command in ("check", "update"):
+                    with self.subTest(pruned=pruned, dirty=dirty, command=command):
+                        self.assert_readonly(command, "REMOTE_BRANCH_MISSING", 1)
+                self.push_check("REMOTE_BRANCH_MISSING", 1)
+                if dirty:
+                    path.unlink()
+
+    def test_no_target_blocks_even_dirty_and_explicit_existing_target_works(self) -> None:
+        self.git(self.worktree, "branch", "--unset-upstream")
+        for dirty in (False, True):
+            if dirty:
+                (self.worktree / "dirty.txt").write_text("work\n", encoding="utf-8")
+            for command in ("check", "update"):
+                self.assert_readonly(command, "NO_UPSTREAM", 1)
+            self.assert_readonly("check", "CURRENT", 0, "--remote", "origin", "--branch", "main")
+
+    def test_custom_fetch_mapping_survives_absent_tracking_ref(self) -> None:
+        self.git(self.worktree, "config", "remote.origin.fetch", "+refs/heads/*:refs/custom/*")
+        self.assert_readonly("check", "CURRENT", 0)
+        sha = self.publish_change("custom mapping update\n")
+        result = self.run_tool("update")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(sha, self.git(self.worktree, "rev-parse", "refs/custom/main").stdout.strip())
+        self.git(self.remote, "update-ref", "-d", "refs/heads/main")
+        self.git(self.worktree, "update-ref", "-d", "refs/custom/main")
+        self.assert_readonly("check", "REMOTE_BRANCH_MISSING", 1)
+
+    def test_operation_markers_block_all_commands_before_dirty_or_detached(self) -> None:
+        sha = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        self.git(self.worktree, "checkout", "--detach")
+        (self.worktree / "dirty.txt").write_text("work\n", encoding="utf-8")
+        for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer"):
+            path = self.worktree / self.git(self.worktree, "rev-parse", "--git-path", marker).stdout.strip()
+            if marker.endswith("HEAD"):
+                path.write_text(sha + "\n", encoding="utf-8")
+            else:
+                path.mkdir()
+            for command in ("check", "update", "verify-push"):
+                args = ("--remote", "origin", "--branch", "main") if command == "verify-push" else ()
+                with self.subTest(marker=marker, command=command):
+                    self.assert_readonly(command, "GIT_OPERATION_IN_PROGRESS", 1, *args)
+            if path.is_dir():
+                path.rmdir()
+            else:
+                path.unlink()
+
+    def test_linked_worktree_operation_detection(self) -> None:
+        linked = self.root / "linked"
+        self.git(self.worktree, "worktree", "add", "-b", "linked", str(linked))
+        marker = linked / self.git(linked, "rev-parse", "--git-path", "sequencer").stdout.strip()
+        marker.mkdir()
+        result = self.run_tool("check", linked, "--remote", "origin", "--branch", "main")
+        self.assertEqual(1, result.returncode)
+        self.assertIn("STATUS GIT_OPERATION_IN_PROGRESS", result.stdout)
+        self.assertTrue(marker.exists())
+
+    def run_update_hook(self, name: str, hook: object) -> tuple[int, str]:
+        output = io.StringIO()
+        with redirect_stdout(output), mock.patch.object(git_latest_code, name, side_effect=hook):
+            code = git_latest_code.update_repository(self.worktree, None, None)
+        return code, output.getvalue()
+
+    def test_update_remote_deleted_before_fetch(self) -> None:
+        self.publish_change("delete before fetch\n")
+        before = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        actual = git_latest_code.fetch_selected_branch
+        def hook(root, target):
+            self.git(self.remote, "update-ref", "-d", "refs/heads/main")
+            return actual(root, target)
+        code, output = self.run_update_hook("fetch_selected_branch", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS REMOTE_BRANCH_MISSING", output)
+        self.assertIn(before, output)
+        self.assertEqual(before, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_remote_deleted_after_fetch_stops_before_merge(self) -> None:
+        self.publish_change("delete after fetch\n")
+        before = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        actual = git_latest_code.fetch_selected_branch
+        def hook(root, target):
+            result = actual(root, target)
+            self.git(self.remote, "update-ref", "-d", "refs/heads/main")
+            return result
+        code, output = self.run_update_hook("fetch_selected_branch", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS REMOTE_BRANCH_MISSING", output)
+        self.assertEqual(before, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_operation_appears_during_fetch(self) -> None:
+        self.publish_change("operation during fetch\n")
+        before = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        actual = git_latest_code.fetch_selected_branch
+        def hook(root, target):
+            result = actual(root, target)
+            (root / ".git" / "sequencer").mkdir()
+            return result
+        code, output = self.run_update_hook("fetch_selected_branch", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS GIT_OPERATION_IN_PROGRESS", output)
+        self.assertEqual(before, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_post_merge_deleted_reports_actual_head(self) -> None:
+        expected = self.publish_change("post merge deletion\n")
+        actual = git_latest_code.run_git
+        def hook(root, args, **kwargs):
+            result = actual(root, args, **kwargs)
+            if args[0] == "merge":
+                self.git(self.remote, "update-ref", "-d", "refs/heads/main")
+            return result
+        code, output = self.run_update_hook("run_git", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS REMOTE_BRANCH_MISSING", output)
+        self.assertIn(f"local: {expected}", output)
+        self.assertEqual(expected, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_post_merge_operation_stops_verification(self) -> None:
+        expected = self.publish_change("post merge operation\n")
+        actual = git_latest_code.run_git
+        def hook(root, args, **kwargs):
+            result = actual(root, args, **kwargs)
+            if args[0] == "merge":
+                (root / ".git" / "sequencer").mkdir()
+            return result
+        code, output = self.run_update_hook("run_git", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS GIT_OPERATION_IN_PROGRESS", output)
+        self.assertIn(f"local: {expected}", output)
+
+    def test_update_fetch_failure_diagnoses_unavailable_without_retry(self) -> None:
+        actual = git_latest_code.fetch_selected_branch
+        calls = []
+        def hook(root, target):
+            calls.append(target)
+            self.git(root, "remote", "set-url", "origin", str(self.root / "absent.git"))
+            return actual(root, target)
+        code, output = self.run_update_hook("fetch_selected_branch", hook)
+        self.assertEqual(2, code)
+        self.assertEqual(1, len(calls))
+        self.assertIn("STATUS REMOTE_UNAVAILABLE", output)
+
+    def test_verify_push_current_ahead_and_dirty(self) -> None:
+        self.push_check("CURRENT", 0)
+        self.commit_local_change("ahead\n")
+        (self.worktree / "dirty.txt").write_text("uncommitted\n", encoding="utf-8")
+        self.push_check("AHEAD", 0)
+
+    def test_verify_push_unknown_behind_and_diverged(self) -> None:
+        self.publish_change("remote commit\n")
+        self.push_check("REMOTE_DIFFERS", 1)
+        self.git(self.worktree, "fetch", "origin")
+        self.push_check("BEHIND", 1)
+        self.commit_local_change("diverged\n")
+        self.push_check("DIVERGED", 1)
+
+    def test_verify_push_uses_push_address_and_destination_not_upstream(self) -> None:
+        push_remote = self.root / "push.git"
+        self.git(self.root, "clone", "--bare", str(self.remote), str(push_remote))
+        self.git(push_remote, "update-ref", "refs/heads/destination", "refs/heads/main")
+        self.git(self.worktree, "remote", "set-url", "--push", "origin", str(push_remote))
+        self.publish_change("fetch address now ahead\n")
+        self.push_check("CURRENT", 0, "destination")
+        self.git(push_remote, "update-ref", "-d", "refs/heads/destination")
+        self.push_check("REMOTE_BRANCH_MISSING", 1, "destination")
+
+    def test_verify_push_multiple_addresses_and_invalid_inputs(self) -> None:
+        missing = self.run_tool("verify-push")
+        self.assertEqual(2, missing.returncode)
+        self.git(self.worktree, "config", "--add", "remote.origin.pushurl", str(self.remote))
+        self.git(self.worktree, "config", "--add", "remote.origin.pushurl", str(self.root / "other.git"))
+        self.push_check("ERROR", 2)
+        self.assert_readonly("verify-push", "ERROR", 2, "--remote", "unknown", "--branch", "main")
+
+    def test_verify_push_unavailable_is_not_missing(self) -> None:
+        self.git(self.worktree, "remote", "set-url", "--push", "origin", str(self.root / "absent.git"))
+        self.push_check("REMOTE_UNAVAILABLE", 2)
+
+    def test_clean_operation_blocks_all_commands(self) -> None:
+        sha = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        (self.worktree / ".git" / "MERGE_HEAD").write_text(sha + "\n", encoding="utf-8")
+        for command in ("check", "update"):
+            self.assert_readonly(command, "GIT_OPERATION_IN_PROGRESS", 1)
+        self.push_check("GIT_OPERATION_IN_PROGRESS", 1)
+
+    def test_update_operation_appears_during_initial_remote_query(self) -> None:
+        self.publish_change("operation before fetch\n")
+        before = self.git(self.worktree, "rev-parse", "HEAD").stdout.strip()
+        actual = git_latest_code.read_remote_sha
+        def hook(root, target):
+            result = actual(root, target)
+            (root / ".git" / "sequencer").mkdir()
+            return result
+        with mock.patch.object(git_latest_code, "fetch_selected_branch") as fetch:
+            code, output = self.run_update_hook("read_remote_sha", hook)
+        fetch.assert_not_called()
+        self.assertEqual(1, code)
+        self.assertIn("STATUS GIT_OPERATION_IN_PROGRESS", output)
+        self.assertEqual(before, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_head_changes_during_fetch_stops_before_merge(self) -> None:
+        self.publish_change("head change during fetch\n")
+        actual = git_latest_code.fetch_selected_branch
+        expected = []
+        def hook(root, target):
+            result = actual(root, target)
+            expected.append(self.commit_local_change("concurrent commit\n"))
+            return result
+        code, output = self.run_update_hook("fetch_selected_branch", hook)
+        self.assertEqual(1, code)
+        self.assertIn("STATUS WORKTREE_CHANGED", output)
+        self.assertIn(f"local: {expected[0]}", output)
+        self.assertEqual(expected[0], self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_update_post_merge_unavailable_reports_actual_head(self) -> None:
+        expected = self.publish_change("post merge access failure\n")
+        actual = git_latest_code.run_git
+        def hook(root, args, **kwargs):
+            result = actual(root, args, **kwargs)
+            if args[0] == "merge":
+                self.git(root, "remote", "set-url", "origin", str(self.root / "absent.git"))
+            return result
+        code, output = self.run_update_hook("run_git", hook)
+        self.assertEqual(2, code)
+        self.assertIn("STATUS REMOTE_UNAVAILABLE", output)
+        self.assertIn(f"local: {expected}", output)
+
+    def test_verify_push_comparison_failure_is_action_required(self) -> None:
+        self.commit_local_change("comparison failure\n")
+        output = io.StringIO()
+        before = self.readonly_snapshot()
+        with redirect_stdout(output), mock.patch.object(
+            git_latest_code, "is_ancestor", side_effect=git_latest_code.GitError("missing parent")
+        ):
+            code = git_latest_code.verify_push(self.worktree, "origin", "main")
+        self.assertEqual(1, code)
+        self.assertIn("STATUS REMOTE_DIFFERS", output.getvalue())
+        self.assertIn("further verification", output.getvalue())
+        self.assertEqual(before, self.readonly_snapshot())
+
+    def test_verify_push_stops_if_head_changes_during_remote_query(self) -> None:
+        actual = git_latest_code.read_remote_sha
+        expected = []
+        def hook(root, target, endpoint=None):
+            sha = actual(root, target, endpoint)
+            expected.append(self.commit_local_change("concurrent push head\n"))
+            return sha
+        output = io.StringIO()
+        with redirect_stdout(output), mock.patch.object(git_latest_code, "read_remote_sha", side_effect=hook):
+            code = git_latest_code.verify_push(self.worktree, "origin", "main")
+        self.assertEqual(1, code)
+        self.assertIn("STATUS WORKTREE_CHANGED", output.getvalue())
+        self.assertIn(f"local: {expected[0]}", output.getvalue())
+
+    def test_verify_push_stops_if_operation_appears_during_remote_query(self) -> None:
+        actual = git_latest_code.read_remote_sha
+        def hook(root, target, endpoint=None):
+            sha = actual(root, target, endpoint)
+            (root / ".git" / "sequencer").mkdir()
+            return sha
+        output = io.StringIO()
+        with redirect_stdout(output), mock.patch.object(git_latest_code, "read_remote_sha", side_effect=hook):
+            code = git_latest_code.verify_push(self.worktree, "origin", "main")
+        self.assertEqual(1, code)
+        self.assertIn("STATUS GIT_OPERATION_IN_PROGRESS", output.getvalue())
+        self.assertTrue((self.worktree / ".git" / "sequencer").exists())
+
+    def test_check_local_comparison_error_keeps_target_and_commits(self) -> None:
+        local_sha = self.commit_local_change("local compare error\n")
+        remote_sha = self.git(self.remote, "rev-parse", "refs/heads/main").stdout.strip()
+        before = self.readonly_snapshot()
+        output = io.StringIO()
+        with redirect_stdout(output), mock.patch.object(
+            git_latest_code, "is_ancestor", side_effect=git_latest_code.GitError("local object error")
+        ):
+            code = git_latest_code.check_repository(self.worktree, None, None)
+        self.assertEqual(2, code)
+        for expected in ("STATUS ERROR", "target: origin/main", local_sha, remote_sha, "dirty: false"):
+            self.assertIn(expected, output.getvalue())
+        self.assertEqual(before, self.readonly_snapshot())
+
+    def test_update_merge_timeout_after_moving_head_reports_actual_state(self) -> None:
+        expected = self.publish_change("merge timeout\n")
+        actual = git_latest_code.run_git
+        def hook(root, args, **kwargs):
+            result = actual(root, args, **kwargs)
+            if args[0] == "merge":
+                raise git_latest_code.GitError("git command timed out")
+            return result
+        code, output = self.run_update_hook("run_git", hook)
+        self.assertEqual(2, code)
+        for value in ("STATUS ERROR", f"local: {expected}", f"remote: {expected}", "target: origin/main", "dirty: false"):
+            self.assertIn(value, output)
+        self.assertEqual(expected, self.git(self.worktree, "rev-parse", "HEAD").stdout.strip())
+
+    def test_malformed_and_timeout_remote_results_are_unavailable(self) -> None:
+        for result in (git_latest_code.GitResult(0, "malformed refs/heads/main", ""),
+                       git_latest_code.GitResult(128, "", "authentication failed")):
+            actual = git_latest_code.run_git
+            def hook(root, args, **kwargs):
+                return result if args[0] == "ls-remote" else actual(root, args, **kwargs)
+            output = io.StringIO()
+            with redirect_stdout(output), mock.patch.object(git_latest_code, "run_git", side_effect=hook):
+                code = git_latest_code.check_repository(self.worktree, None, None)
+            self.assertEqual(2, code)
+            self.assertIn("STATUS REMOTE_UNAVAILABLE", output.getvalue())
+        with mock.patch.object(git_latest_code.subprocess, "run", side_effect=subprocess.TimeoutExpired("git", 30)):
+            with self.assertRaises(git_latest_code.GitError):
+                git_latest_code.run_git(self.worktree, ["ls-remote"])
 
 
 if __name__ == "__main__":

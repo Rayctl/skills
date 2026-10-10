@@ -1,7 +1,7 @@
 interface:
   display_name: "Git Latest Code Check"
-  short_description: "Check remote Git state before code work"
-  default_prompt: "Use $git-latest-code-check to verify this already-confirmed Git worktree, visibly report the result, announce any clean-worktree fast-forward before it runs, and treat remote problems as non-blocking only for related work already present in a dirty worktree."
+  short_description: "Check development targets and verify before pushing"
+  default_prompt: "Use $git-latest-code-check for this confirmed Git worktree. Visibly report every check, update, and verify-push result; announce updates first. Always stop for missing or unknown targets and unfinished Git operations, even when dirty. Retain confirmed explicit targets and refreshed baselines. Permit dirty warnings only for freshness or temporary access issues in existing related work. Before every authorized push, verify the actual single existing push destination and stop on failure."
 
 policy:
   allow_implicit_invocation: false
