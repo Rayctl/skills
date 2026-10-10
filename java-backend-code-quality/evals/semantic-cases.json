@@ -942,6 +942,105 @@
         "Expand all ternaries mechanically",
         "Add helpers or temporary objects to represent two clear labels"
       ]
+    },
+    {
+      "id": "simple-change-light-loop",
+      "title": "Simple local change uses a light implementation loop",
+      "mode": "implementation",
+      "triggers": [
+        "evidence-and-verification"
+      ],
+      "prompt": "只重命名一个局部变量并保持行为不变",
+      "fixture": "The changed Java task renames one local variable in a pure method. Its initializer and uses are local, with no external call, state, error, log, lifecycle, cross-field contract or test behavior change.",
+      "expected_decisions": [
+        "Do a brief local context precheck and a final reread of the method and diff",
+        "Avoid loading unrelated lifecycle, remote or exception references",
+        "Do not initialize project guidance merely for routine formatting or a local rename",
+        "Do not pause after every line or report missing stage checkpoints"
+      ],
+      "disallowed_decisions": [
+        "Perform a full module-wide semantic scan without evidence",
+        "Treat the simple rename as a complex workflow requiring user approval"
+      ],
+      "assertions": [
+        "The light loop preserves quality without unnecessary context"
+      ]
+    },
+    {
+      "id": "complex-stage-checkpoints",
+      "title": "Complex flow is checked at stage handoffs",
+      "mode": "implementation",
+      "triggers": [
+        "evidence-and-verification",
+        "comments-and-javadoc",
+        "contracts-and-lifecycles"
+      ],
+      "prompt": "实现一个包含校验、数据库写入和远程通知的更新流程",
+      "fixture": "The task changes a method with validation, a database write, a remote notification, and a failure compensation path. Each stage hands a result to the next, and logging plus error ownership differ by boundary.",
+      "expected_decisions": [
+        "Classify the task as complex before editing",
+        "Implement and verify each meaningful stage before writing the next stage",
+        "Inspect each stage with its next consumer after implementation",
+        "Verify order, state, failure category, compensation and diagnostic ownership at each checkpoint",
+        "Load only the references triggered by the actual stages"
+      ],
+      "disallowed_decisions": [
+        "Wait until the final diff to discover whether the database write precedes notification",
+        "Load every reference unconditionally before understanding the task",
+        "Treat each short statement as a separate user-interaction checkpoint"
+      ],
+      "assertions": [
+        "The implementation loop catches cross-stage drift before final verification"
+      ]
+    },
+    {
+      "id": "complexity-escalates-during-edit",
+      "title": "A simple task becomes complex when a boundary appears",
+      "mode": "implementation",
+      "triggers": [
+        "evidence-and-verification",
+        "remote-calls",
+        "exception-communication"
+      ],
+      "prompt": "给一个简单的字段转换增加供应商查询",
+      "fixture": "The task starts as a local DTO conversion. During implementation it adds a provider lookup whose business rejection and transport failure have different caller handling; no remote-call reference was needed before that addition.",
+      "expected_decisions": [
+        "Upgrade the task to complex when the provider boundary is introduced",
+        "Pause before editing the new boundary to inspect remote and exception rules",
+        "Recheck the handoff from conversion to provider result and preserve failure classification"
+      ],
+      "disallowed_decisions": [
+        "Continue using the original simple-task assumptions",
+        "Defer remote-call and exception review until all code is written",
+        "Load unrelated lifecycle references without a matching concern"
+      ],
+      "assertions": [
+        "New concerns trigger routing and a checkpoint at the point they appear"
+      ]
+    },
+    {
+      "id": "checkpoint-uncertainty-pauses",
+      "title": "Changed understanding pauses a complex implementation",
+      "mode": "implementation",
+      "triggers": [
+        "evidence-and-verification"
+      ],
+      "prompt": "继续实现跨库修订号同步逻辑",
+      "fixture": "At a checkpoint after reading the current writer and reader, evidence conflicts about whether a revision mismatch should auto-repair or reject the request. The two choices produce different caller-visible errors and persistence state.",
+      "expected_decisions": [
+        "Stop at the checkpoint rather than continue on the old assumption",
+        "Report the conflicting evidence, options, impact and recommendation",
+        "Ask the user before choosing behavior that changes errors or persisted state",
+        "Preserve already verified earlier stages"
+      ],
+      "disallowed_decisions": [
+        "Guess the preferred behavior from a nearby pattern",
+        "Finish the whole method and ask only after changing persistence behavior",
+        "Rewrite unrelated historical code while investigating"
+      ],
+      "assertions": [
+        "The checkpoint prevents an interpretation change from silently spreading"
+      ]
     }
   ]
 }

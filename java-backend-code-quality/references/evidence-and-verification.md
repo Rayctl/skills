@@ -2,6 +2,34 @@
 
 Read this reference before modifying existing behavior or data semantics, when a quality decision depends on missing or conflicting evidence, or when tools may change files after the initial edit. It governs semantic impact analysis, the distinction between repository facts and Skill defaults, and verification of the code that actually remains on disk.
 
+## Incremental Implementation Loop
+
+Use a light loop for simple changes and a checkpoint loop for complex changes. Complexity is semantic, not a line-count threshold.
+
+A change is usually simple when it is a local rename, direct assignment, getter, pure conversion, isolated branch, or test-data adjustment with no external call, persistent state, cross-field invariant, lifecycle, error-policy, or diagnostic change. Read the target neighborhood, route only triggered references, make the edit, then reread the changed method and final diff. Do not pause after every line or load unrelated references.
+
+Treat a change as complex when it has multiple business stages, changes a boundary call, reads or writes a database, cache, file, queue, or remote service, crosses a transaction or asynchronous boundary, changes state or lifecycle, has retries or compensation, changes error or logging behavior, or relies on related fields jointly expressing a contract. A simple task becomes complex as soon as the edit introduces one of these concerns. Do not downgrade the checks merely because an individual statement is short.
+
+Before the first edit of a complex task:
+
+1. Record the trigger, affected callers, data sources, stage outputs, failure paths, diagnostics, and tests needed to explain the existing behavior
+2. Classify the stages and load only references whose triggers are present
+3. Identify assumptions that would require a user decision if the evidence remains unresolved
+
+Implement complex work in meaningful slices. After each meaningful stage or boundary call, and before moving to a new responsibility:
+
+1. Read the code just written together with the next consumer
+2. Confirm input source, output handoff, validation order, state changes, side effects, error category, recovery path, and diagnostic ownership
+3. Check that local names and comments still describe the current behavior and that no helper or constant hides needed branch evidence
+4. Recompute the change scope and reference triggers; if a new logging, exception, remote, lifecycle, parameter, or structure concern appeared, load its reference before editing that part
+
+Do not write all stages first and postpone these checks until the final diff. A slice may contain the small statements needed to complete one responsibility, but it must leave a readable handoff to the next consumer before implementation continues. A database write followed by a remote notification, for example, is two checkpoints even if each call is one line.
+
+If a checkpoint reveals that the requirement, data relationship, error meaning, or existing special handling was misunderstood, stop at that boundary. Report the evidence, the changed interpretation, the concrete options and impact, and ask before continuing when behavior would differ. Preserve already-correct stages and discard only conclusions invalidated by the new evidence.
+
+The final pass is not a substitute for checkpoints. It rereads the complete changed path, verifies cross-stage invariants and final callers, runs the deterministic checker and focused tests, and records checks that could not run. For a simple change it may be the only post-edit review; for a complex change it confirms every checkpoint rather than relying on a final diff glance.
+
+
 ## Map The Semantic Neighborhood
 
 The symbol named in the request is an investigation starting point, not automatically the full change boundary. Before editing existing behavior, follow only the paths needed to understand:

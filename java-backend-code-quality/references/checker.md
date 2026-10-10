@@ -37,6 +37,8 @@ Parameter meaning, object properties versus invocation or traversal context, fla
 
 Repeated decisions, branch concentration, structural-literal meaning, and whether a named boolean improves the whole path require semantic review. The checker does not count repeated conditions or flag every numeric literal; a passing result does not exempt dense ternaries or scattered validation and execution from final review.
 
+Incremental checkpoints are an implementation workflow, not a checker rule. The read-only checker observes a selected code snapshot and cannot prove that earlier stage handoffs were reviewed during editing.
+
 ## Exit Codes
 
 - `0`: no violations for the selected scope
