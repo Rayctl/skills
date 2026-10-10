@@ -1,6 +1,6 @@
 # Git Latest Code Check
 
-在规划或修改代码前，只读检查当前 Git 分支是否已经包含指定远端分支的最新提交。发现代码基线不确定时先停止并说明，只有得到明确同意后才尝试安全快进更新
+在规划或修改代码前，只读检查当前 Git 分支是否已经包含指定远端分支的最新提交。发现代码基线不确定时先停止并说明，干净工作区明确落后时自动尝试一次安全快进更新
 
 ## 工作方式
 
@@ -16,11 +16,12 @@
   -> 已确认 Git worktree：调用 Skill
   -> 无论工作区是否有改动，都只读检查远端
   -> 干净 + CURRENT / AHEAD：继续规划或编码
+  -> 干净 + BEHIND：先提示将执行一次安全快进，再自动更新
   -> 干净 + 远端不同或无法确认：停止并提示
   -> 脏 + CURRENT / AHEAD：提示脏状态，继续相关工作
   -> 脏 + 远端不同或无法确认：警告但不阻断相关工作
   -> 脏 + 本次任务与已有改动无关：停止，要求使用干净工作区
-  -> 仅干净工作区可在用户明确同意后尝试更新
+  -> 仅干净 + BEHIND 可自动尝试一次更新
   -> 可快进：更新后重新读取代码
 ```
 
@@ -78,13 +79,13 @@ py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_c
 py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_code.py" check --repo "D:\path\to\repo" --remote origin --branch main
 ```
 
-发现远端不同并得到用户明确同意后，执行安全更新：
+发现 `BEHIND` 且工作区干净后，先在对话中说明仓库、分支、目标和本地/远端短提交号，再执行一次安全更新：
 
 ```powershell
 py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_code.py" update --repo "D:\path\to\repo"
 ```
 
-`--remote` 和 `--branch` 必须同时提供。显式目标只用于本次调用，不会修改本地 upstream 配置
+`--remote` 和 `--branch` 必须同时提供。显式目标只用于本次调用，不会修改本地 upstream 配置。`REMOTE_DIFFERS`、`DIVERGED`、`NO_UPSTREAM`、`DETACHED` 或远端不可用时不会自动更新
 
 ## 状态与退出码
 
@@ -95,7 +96,7 @@ py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_c
 | `CURRENT` | 本地与远端提交一致 | 继续 | 提示脏状态，继续相关工作 |
 | `AHEAD` | 本地已包含远端最新提交并有额外提交 | 继续 | 提示脏状态，继续相关工作 |
 | `REMOTE_DIFFERS` | 远端提交与本地不同，但只读检查无法安全分类 | 停止并请求更新授权 | 警告，继续已有改动相关工作 |
-| `BEHIND` | 本地单纯落后 | 停止并请求更新授权 | 警告，继续已有改动相关工作 |
+| `BEHIND` | 本地单纯落后 | 先报告动作，再自动尝试一次安全快进 | 警告，继续已有改动相关工作 |
 | `DIVERGED` | 本地与远端已经分叉 | 停止并由用户处理 | 警告，继续已有改动相关工作 |
 | `NO_UPSTREAM` | 当前分支没有可用远端目标 | 停止并要求明确目标 | 警告，继续已有改动相关工作 |
 | `REMOTE_UNAVAILABLE` | 远端无法访问或目标分支不存在 | 停止并处理网络、凭据或分支配置 | 警告，继续已有改动相关工作 |
@@ -120,7 +121,8 @@ py -3 "$env:USERPROFILE\.codex\skills\git-latest-code-check\scripts\git_latest_c
 
 - `check` 只执行只读 Git 命令，通过 `GIT_OPTIONAL_LOCKS=0` 禁止可选索引刷新，并通过 `GIT_NO_LAZY_FETCH=1` 禁止 partial clone 按需获取缺失对象
 - `check` 不因工作区脏而跳过；脏状态只改变 Codex 对远端问题的处理方式
-- `update` 必须由用户针对当前仓库和分支明确授权
+- 干净工作区的 `BEHIND` 状态只自动尝试一次安全快进；其他状态的直接 `update` 仍需用户针对当前仓库和分支明确授权
+- 执行任何 `update` 前必须先在对话中说明将要更新；命令输出不能替代这条提示
 - 脏工作区禁止执行 `update`，不得因为远端提示而要求用户授权更新
 - 更新要求工作区完全干净，包括未跟踪文件
 - 只允许获取指定远端分支和 `git merge --ff-only`
