@@ -38,6 +38,44 @@ When a method begins with three or more terminating guards, add one comment befo
 
 Comments explain intent, boundaries, downstream use, or consequences rather than restating syntax. Do not comment self-evident assignments, pure predicates, getters, or direct calls whose full contract is visible. JavaDoc, logs, catch-local comments, and nested comments do not replace a required top-level stage comment.
 
+### Avoid Mechanical Comments
+
+Before writing a body comment, ask what information it adds: identify the business reason, source boundary, ordering guarantee, compatibility role, selection policy, or failure consequence a reader would otherwise have to infer. For self-explanatory code without a documentation obligation, omit a comment that adds nothing.
+
+Apply a deletion test after drafting: would removing the comment lose useful information? Remove redundant optional body comments; rewrite required JavaDoc, guard-cluster, behavior-changing catch, and hidden-stage explanations instead of deleting their coverage. Clear names or a linear body do not exempt an independent action from JavaDoc. A comment that could be pasted above unrelated code without becoming false is too generic. Length or visual spacing alone does not justify comments.
+
+One precise comment can explain several statements enforcing the same invariant. Independent preparation, remote execution, persistence, or response stages still need their own explanations when their hidden contracts differ. Improve names or types when they express the missing fact better; do not extract trivial helpers merely to replace comments.
+
+## Write Clear, Natural Wording
+
+Check both factual content and wording while writing each stage and during final readback. A useful fact can still be expressed mechanically.
+
+- Name the actual object and action. Replace ambiguous subjects such as "状态", "结果", "该阶段", or "后续逻辑" when the reader cannot tell which value or operation they mean
+- Use ordinary project language. Expressions such as "消费结果", "承接状态", or "收敛逻辑" are examples of potentially vague wording, not banned words; retain established domain terms when they accurately identify a concept
+- State one main point first. Add a second sentence or line when another necessary condition would overload it; preserve qualifiers rather than shortening away null behavior, ordering, compatibility, or failure guarantees
+- Explain a specific rule directly. Do not force every sentence into "为了...先...避免...", write numbered stage labels, or paraphrase method names. Genuine causal statements and necessary negative guarantees remain valid
+- Verify claims against implementation, callers, tests, configuration, or a confirmed contract. Never invent a business reason, automatic retry, atomicity, or recovery guarantee to make prose sound purposeful. If the reason is unknown, investigate it; describe only supported behavior and ask when the unresolved choice affects correctness
+- JavaDoc starts with a concise description of the action or contract, without padding such as "本方法用于". Describe meaningful inputs, absence behavior, outputs, side effects, and errors as applicable; do not fill a fixed checklist with irrelevant sentences. Preserve tags required by repository documentation rules
+
+Read the comment with its code as a maintainer who did not participate in the task. They should identify the object, rule, and supported consequence in one pass without guessing pronoun references or translating abstract prose. Wording improvements must not change the documented behavior.
+
+Examples below assume the stated behavior is established by the code and contract; they are not phrases to paste into unrelated code:
+
+```java
+// Vague: 完成校验后执行后续持久化逻辑
+// Specific: 全部明细校验通过后再保存，任一明细无效时不写入订单
+
+// Vague: 异常时执行降级处理，保证主流程正常进行
+// Specific: 缓存写入失败仍返回渠道结果，不重试缓存写入
+
+// Dense: 消费当前有效状态完成结果收敛并维持接口输出一致性
+// Specific: 将渠道响应转换为调用方约定的响应格式，保留渠道返回的业务错误
+```
+
+## Sources And Local Choices
+
+These rules adapt Robert C. Martin's public [redundant-comment guidance](https://www.informit.com/articles/article.aspx?p=1327761), [poorly-written-comment guidance](https://www.informit.com/articles/article.aspx?p=1328957), and [obsolete-comment guidance](https://www.informit.com/articles/article.aspx?p=1326509), alongside [Google's JavaDoc guidance](https://google.github.io/styleguide/javaguide.html#s7-javadoc) and [Oracle's API documentation guidance](https://www.oracle.com/technical-resources/articles/java/javadoc-tool.html). They support informative, concise wording, accurate maintenance, and caller-visible contracts. Reading those pages is not a task prerequisite. This Skill's independent-action JavaDoc coverage and punctuation preferences are local choices, not universal requirements attributed to these sources.
+
 ## Describe The Current Contract
 
 Write comments from the accepted current behavior and invariant, assuming the reader did not see the implementation history or working discussion. Do not make a superseded implementation, rejected option, old field, or unused input the center of a comment merely because it was considered during the change.
@@ -58,6 +96,8 @@ For example, prefer `// Select the request encoder from the resolved content typ
 Remove or update comments when behavior, ownership, or ordering moves. Describe an operation as atomic only when a transaction primitive, lock, or compare-and-set contract actually guarantees atomicity.
 
 ## Formatting And Severity
+
+An unsupported claim about retries, state, ordering, compatibility, or failure guarantees is graded by its actual maintenance or behavioral risk, normally P2 when it can cause a wrong change. Wording that obscures an object or condition is P3 when it only adds local reading cost. Another equally accurate, readable phrasing is not a finding; explain a concrete ambiguity before reporting prose style.
 
 Java comments, including JavaDoc and method-body comments, must not end with `。` or `.`. Keep exactly one blank line between method declarations. Report every changed-scope violation, even when the impact is only stylistic.
 

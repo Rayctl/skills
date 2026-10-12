@@ -28,7 +28,7 @@ Never expose stack traces, Java class or method names, SQL, storage structure, i
 
 Do not treat a structured business error returned by a successful remote transport as interchangeable with `exception.getMessage()`. When changed code handles HTTP, Feign, RPC, or external SDK failures, read [remote-calls.md](remote-calls.md) and preserve the downstream business reason through the repository's caller or diagnostic contract.
 
-An outermost handler for an unexpected, unclassified failure may return a safe generic message such as `Service is temporarily unavailable; try again later` when it also returns the established stable error code and records the full internal diagnosis. Known validation, state, permission, dependency, and persistence failures still require their specific caller contract.
+An outermost handler for an unexpected, unclassified failure may return a safe generic message such as `The request could not be completed` when it also returns the established stable error code and records the full internal diagnosis. Add retry advice only when retry is safe and useful under the actual operation contract. Known validation, state, permission, dependency, and persistence failures still require their specific caller contract.
 
 ## Cause And Recovery Alignment
 
@@ -81,6 +81,8 @@ At the layer that owns failure reporting, record the failed operation or stage, 
 
 Preserve the original `cause` when converting an internal exception and the project exception type supports it. If the public exception contract cannot retain the cause, log it once at the diagnostic owner before conversion. Avoid catch-log-rethrow at every layer because duplicated logs obscure ownership and incident counts.
 
+When cleanup or fallback also fails, retain the primary failure and relevant secondary or suppressed failures under the project's exception contract. Do not replace the original exception with only its message text or let a throwing `finally` conceal it. Resource ownership and try-with-resources are handled in [contracts-and-lifecycles.md](contracts-and-lifecycles.md) only when the changed path has that concern; a message-only edit does not require loading resource rules
+
 Do not invent a logging or disclosure policy for remote payloads, credentials, or replayable values. Follow the repository's established policy; if it is unclear, use [remote-calls.md](remote-calls.md) to present the available logging scopes and wait for the user's choice. Prefer explicit diagnostic fields and recommend against raw credential logging, but do not silently substitute that recommendation for a repository or user decision.
 
 ```java
@@ -90,7 +92,7 @@ catch (StorageException exception) {
             orderId, orderStatus, exception);
     throw new BusinessException(
             ErrorCode.DATA_ACCESS_ERROR,
-            "Order could not be saved; try again later",
+            "Order could not be saved",
             exception);
 }
 ```

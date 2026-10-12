@@ -68,6 +68,18 @@ When no authoritative mapping or disclosure rule exists, do not guess. Present t
 - return a stable local error while retaining provider details internally
 - introduce an explicit provider-failure type or reviewed mapping
 
+## Timeouts And Repeated Attempts
+
+Apply this section when the changed call or failure handling affects timeouts, retries, repeated side effects, or outcome certainty. Do not add a retry policy merely because a remote integration needs better logging
+
+Check the configured client, SDK, wrapper, and caller before changing attempts. Identify which layer owns retry and what connection, request, and total operation deadlines actually cover, including DNS, connection establishment, TLS, and response reading where applicable. Do not assume one timeout bounds all of them. Include retry waits and all attempts in the caller's time budget
+
+A timeout, disconnect, or lost response can leave the provider outcome unknown. Do not label it a business rejection or assume rollback, and do not repeat a side-effecting operation without an established idempotency or reconciliation contract. A newly generated key on each attempt does not preserve one operation's identity. Follow provider semantics for retryable statuses and business errors; a parsed rejection is not automatically retryable
+
+When retries are required by evidence or the task, keep bounded attempts and a bounded total budget at one responsible layer where possible. Check lower-layer retries to avoid multiplying attempts. Use the project's existing backoff and jitter policy when needed for load control; do not invent universal retry counts or timeout values, sleep while holding a protected resource without a contract, or silently change caller deadlines. Preserve final outcome and attempt diagnostics through the existing logging owner. Ask when the required outcome or idempotency policy cannot be established
+
+[AWS's Timeouts, retries, and backoff with jitter](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) explains uncertain side effects, retry amplification, timeout scope, and load control. Adapt it to the actual provider and caller contract; it neither mandates retries nor supplies universal configuration values. Load [contracts-and-lifecycles.md](contracts-and-lifecycles.md) when these ownership or lifecycle concerns apply, not for ordinary payload logging alone
+
 ## Example
 
 This loses the only provider explanation even though the remote response was parsed successfully:

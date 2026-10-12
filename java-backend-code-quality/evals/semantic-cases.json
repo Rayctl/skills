@@ -72,7 +72,7 @@
       "title": "Adjacent calls with different responsibilities need separate intent comments",
       "mode": "review",
       "triggers": ["comments-and-javadoc", "contracts-and-lifecycles"],
-      "fixture": "One call maps and validates a request for the next processor. The following call performs remote business execution. A single comment currently covers both calls.",
+      "fixture": "One call maps and validates a request and may commit a pending cache refresh under a short-lived refresh lock. The following call must invoke the real channel outside that lock even if the cache was refreshed. The call names do not reveal these guarantees, and a single generic comment currently covers both calls.",
       "expected_decisions": [
         "Treat mapping and remote execution as separate stages",
         "Require each stage comment to explain its own handoff, ordering, or failure consequence"
@@ -109,6 +109,156 @@
       "disallowed_decisions": [
         "Remove every mention of legacyFormat solely to avoid historical framing",
         "Say only that legacyFormat does not participate without explaining why it still exists"
+      ]
+    },
+    {
+      "id": "comment-deletion-test-removes-template",
+      "title": "A generic stage sentence should be deleted",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "fixture": "A linear method has comments such as 处理该阶段, 执行后续逻辑, and 下面进行处理 above direct assignments and calls. Names, types, ordering, and call contracts already reveal the behavior, and no compatibility, selection, or failure rule is hidden.",
+      "expected_decisions": [
+        "Apply a deletion test to the generic comments",
+        "Remove comments that add no semantic information",
+        "Do not replace them with one comment per statement or another template"
+      ],
+      "disallowed_decisions": [
+        "Keep the comments merely because the method has multiple stages",
+        "Require an intent comment for every visually separated block"
+      ]
+    },
+    {
+      "id": "comment-semantic-delta-keeps-boundary",
+      "title": "A precise boundary comment remains useful",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "fixture": "A method first prepares a mapped request and then invokes the real channel. A refresh-lock check may update cache state but must not replace the channel call; the ordering and ownership are not visible from the method names alone.",
+      "expected_decisions": [
+        "Keep one precise comment describing the cache-refresh boundary and the required channel-call ordering",
+        "Place the comment at the stage where the hidden guarantee begins",
+        "Avoid adding generic comments to the surrounding assignments"
+      ],
+      "disallowed_decisions": [
+        "Delete the comment because the method is linear",
+        "Rewrite the comment as a generic stage label"
+      ]
+    },
+    {
+      "id": "comment-natural-specific-objects",
+      "title": "Useful information still needs concrete wording",
+      "mode": "review",
+      "triggers": [
+        "comments-and-javadoc"
+      ],
+      "prompt": "检查这条注释是否清楚，并给出必要的改写",
+      "fixture": "// 消费当前有效状态完成结果收敛并维持接口输出一致性\nreturn responseConverter.convertToResponse(channelResponse);\nThe converter adapts the provider response to the caller schema and preserves structured provider business errors. It has no special state or consistency mechanism.",
+      "expected_decisions": [
+        "Describe the channel response, caller response format, and preservation of provider business errors with concrete wording",
+        "Remove unsupported state and consistency abstractions without changing the actual contract"
+      ],
+      "disallowed_decisions": [
+        "Approve abstract wording merely because it mentions intent",
+        "Invent a transaction or consistency guarantee",
+        "Replace every technical term using a blacklist"
+      ]
+    },
+    {
+      "id": "comment-no-invented-retry",
+      "title": "A smoother comment must not invent recovery",
+      "mode": "review",
+      "triggers": [
+        "comments-and-javadoc",
+        "exception-communication"
+      ],
+      "prompt": "把这段异常分支的注释改得自然易懂",
+      "fixture": "try {\n    cache.put(key, channelResult);\n} catch (CacheWriteException ex) {\n    // 自动重试缓存写入，保证后续请求命中\n    logger.warn(\"cache write failed\", ex);\n}\nreturn channelResult;\nThe catch has no retry; neither the cache API nor the surrounding flow guarantees a future cache hit.",
+      "expected_decisions": [
+        "Flag the claimed retry and future-hit guarantee as unsupported",
+        "Rewrite the required catch comment to explain returning the channel result despite the cache write failure",
+        "Preserve the behavior-changing catch explanation rather than deleting it"
+      ],
+      "disallowed_decisions": [
+        "Add a retry implementation as part of a comment-only review",
+        "Claim the next request always succeeds",
+        "Remove the comment solely because the statements are short"
+      ]
+    },
+    {
+      "id": "comment-long-sentence-preserves-qualifiers",
+      "title": "Shorter wording retains necessary exceptions",
+      "mode": "review",
+      "triggers": [
+        "comments-and-javadoc"
+      ],
+      "prompt": "这条注释太长，帮我改善可读性",
+      "fixture": "// 承接请求的当前有效状态完成批量参数校验并在所有普通订单明细通过后统一写入且历史订单允许缺少渠道编号而普通订单缺少则应拒绝\nvalidateAllDetails(details, legacyOrder);\nrepository.saveOrder(order);\nThe contract rejects invalid normal-order details before any write. Legacy orders may omit the channel code, but other detail checks still apply.",
+      "expected_decisions": [
+        "Split the validation/write ordering and the legacy channel-code exception into readable statements",
+        "Keep the exception specific to missing channel code rather than all validation",
+        "Preserve the no-write-on-invalid-normal-details rule"
+      ],
+      "disallowed_decisions": [
+        "Shorten the sentence by dropping the legacy exception",
+        "Say all legacy-order validation is skipped",
+        "Add decorative numbered stage labels instead of meaningful wording"
+      ]
+    },
+    {
+      "id": "comment-required-javadoc-rewrite",
+      "title": "Clear method names do not remove independent-action JavaDoc",
+      "mode": "implementation",
+      "triggers": [
+        "comments-and-javadoc"
+      ],
+      "prompt": "改进方法注释的文案，保持行为不变",
+      "fixture": "/**\n * 本方法用于捕获最终请求报文并进行相关处理\n */\nprivate void captureFinalRequestPayload(HttpRequest request) {\n    auditContext.setPayload(request.getEncodedBody());\n}\nThis independent audit action captures the encoded payload after request mapping and encoding, for later failure diagnosis. It does not send the request. Repository documentation tags follow the normal existing style.",
+      "expected_decisions": [
+        "Keep JavaDoc for the independent action and state the capture timing and diagnostic use plainly",
+        "Avoid restating only the method name or filling unrelated parameter and exception boilerplate"
+      ],
+      "disallowed_decisions": [
+        "Delete JavaDoc because the method is linear or the name is clear",
+        "Claim that the method sends the request",
+        "Mechanically add an exception policy not present in the contract"
+      ]
+    },
+    {
+      "id": "comment-required-guard-rewrite",
+      "title": "Generic required guard documentation is rewritten",
+      "mode": "review",
+      "triggers": [
+        "comments-and-javadoc"
+      ],
+      "prompt": "检查入口注释是否需要优化",
+      "fixture": "// 进行相关检查\nif (request == null) { throw new InvalidRequestException(\"request missing\"); }\nif (config == null) { throw new ConfigurationException(\"configuration missing\"); }\nif (!config.isEnabled()) { throw new ConfigurationException(\"configuration disabled\"); }\ninvokeChannel(request, config);\nThe guard cluster separates missing caller input from unavailable channel configuration before any external call.",
+      "expected_decisions": [
+        "Replace the generic guard comment with the request/configuration boundary and pre-call purpose",
+        "Keep one leading guard-cluster comment and the distinct error categories"
+      ],
+      "disallowed_decisions": [
+        "Delete the leading comment without replacement using the deletion test",
+        "Add a comment for every if",
+        "Merge request and configuration errors into a generic parameter category"
+      ]
+    },
+    {
+      "id": "comment-valid-domain-and-causal-wording",
+      "title": "Specific domain terms and causal sentences are allowed",
+      "mode": "review",
+      "triggers": [
+        "comments-and-javadoc"
+      ],
+      "prompt": "这两条注释是不是太机械",
+      "fixture": "// 为避免重复下单，重试沿用首次请求的幂等键\nretryRequest.setIdempotencyKey(firstRequest.getIdempotencyKey());\n// 保留 JSON Merge Patch 中显式的 null，它表示删除字段\npatchConverter.preserveExplicitNull(patch);\nProvider contracts and tests confirm the same idempotency key for retries and null-as-deletion for this specific patch protocol.",
+      "expected_decisions": [
+        "Retain both specific, supported explanations",
+        "Allow the genuine causal sentence and necessary protocol terminology",
+        "Do not report a problem merely because another valid wording exists"
+      ],
+      "disallowed_decisions": [
+        "Ban 为避免 or the protocol name mechanically",
+        "Remove the null-as-deletion explanation because a method name mentions null",
+        "Generalize null-as-deletion to every JSON operation"
       ]
     },
     {
@@ -1041,6 +1191,106 @@
       "assertions": [
         "The checkpoint prevents an interpretation change from silently spreading"
       ]
+    },
+    {
+      "id": "stage-review-does-not-force-comment-per-call",
+      "title": "Inspect stages without mechanically annotating visible calls",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc", "contracts-and-lifecycles"],
+      "prompt": "这两个调用都需要单独加正文注释吗？",
+      "fixture": "A method has valid JavaDoc. It calls invoiceValidator.validateRequiredInvoiceFields(invoice), then invoiceRepository.insert(invoice). Types, names and the supplied repository contract already expose validation-before-insert, the single-store write and exception behavior; there is no hidden fallback or policy. Contrast another path where save precedes notification and a notification failure deliberately retains the saved invoice, a consequence not exposed by names.",
+      "expected_decisions": ["Inspect validation and persistence as separate stages without requiring redundant comments on both visible calls", "Require a local explanation of the non-obvious retain-on-notification-failure policy in the contrasting path", "Preserve required JavaDoc and behavior-changing catch coverage"],
+      "disallowed_decisions": ["Require a separate body comment for every boundary call solely because it is a stage", "Use fewer comments as a reason to skip stage checkpoints"]
+    },
+    {
+      "id": "method-cohesion-not-size-threshold",
+      "title": "Method boundaries follow caller understanding rather than length",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "prompt": "是不是方法都越短越好，复用就一定应该保留？",
+      "fixture": "A private invalidInvoiceException() returns a fixed INVALID_ARGUMENT exception and literal message; it has eight uses. Another private isXmlContentType(value) combines XML-compatible media types and the +xml suffix for choosing an encoder. A longer submitInvoice method also hides an unrelated report export after submission.",
+      "expected_decisions": ["Show the fixed exception category and message at throw sites despite eight uses", "Allow the useful XML classifier when it lowers caller reading cost and preserves null semantics", "Inspect the unrelated export as a responsibility and side-effect problem rather than imposing a line limit"],
+      "disallowed_decisions": ["Keep the fixed factory solely for DRY", "Delete every short predicate", "Accept every long method as coherent or impose a universal maximum length"]
+    },
+    {
+      "id": "cohesive-range-not-flag-bag",
+      "title": "Parameter objects need a shared contract",
+      "mode": "implementation",
+      "triggers": ["method-design", "structure-choice"],
+      "prompt": "优化这些参数，但不要为了参数少而加结构",
+      "fixture": "Several changed application calls pass startDate and endDate together, validate the same inclusive interval, and the project already has an appropriate DateRange type. A separate validator accepts unrelated allowMissing, outboundLocation and ancestorArray flags. There is no existing meaningful object that owns those three facts.",
+      "expected_decisions": ["Consider reusing DateRange because the values jointly own an interval contract, checking boundary and absence behavior", "Keep object properties, invocation location and ancestor state distinct", "Do not create a flag bag merely to lower argument count", "Follow existing extension points without proposing an unnecessary new class family"],
+      "disallowed_decisions": ["Wrap all flags into an internal context type solely because there are three", "Pass the entire entity merely to reduce the signature", "Introduce a universal parameter-count limit"]
+    },
+    {
+      "id": "parameter-derivation-preserves-snapshot",
+      "title": "Removing an argument must preserve evaluation timing",
+      "mode": "review",
+      "triggers": ["method-design", "contracts-and-lifecycles"],
+      "prompt": "把 revision 参数删掉，方法里自己从对象取，可以吗？",
+      "fixture": "The caller reads long revision = config.getRevision() once and passes it to validation and persistence as one snapshot. A proposed signature change passes mutable config instead; the helper reads getRevision() for validation, runs a callback that can change config, and reads getRevision() again for writing. The repository requires the validated revision to equal the written revision.",
+      "expected_decisions": ["Reject the proposed repeated reads because they can use different revisions", "Preserve a single captured snapshot or demonstrate an equivalent immutable ownership contract", "Check timing, access count, null behavior and callback mutation before deriving parameters inside the helper"],
+      "disallowed_decisions": ["Approve because the object already has the property", "Treat identical output in one happy-path test as sufficient equivalence"]
+    },
+    {
+      "id": "names-must-not-claim-future-state",
+      "title": "Names distinguish established from intended state",
+      "mode": "review",
+      "triggers": ["naming"],
+      "prompt": "检查这些变量名是否说清真实状态",
+      "fixture": "List<Invoice> validatedInvoiceList = invoiceRepository.queryPendingInvoices(); validation occurs later. The changed path alternates invoice and bill for the same domain identity although the official contract consistently calls it Invoice. A clearly named InvoiceRepository already supplies the subject for insert(invoice).",
+      "expected_decisions": ["Use a pending or unvalidated state name until validation actually establishes the claimed state", "Keep established Invoice vocabulary consistent rather than inventing synonyms", "Do not make insert names repeat every receiver and implementation detail when the responsibility is clear"],
+      "disallowed_decisions": ["Allow validated simply because validation is planned", "Treat longer identifiers as automatically better"]
+    },
+    {
+      "id": "constant-identity-not-equal-literal",
+      "title": "Independent concepts deserve names without coupling local literals",
+      "mode": "review",
+      "triggers": ["control-flow", "method-design"],
+      "prompt": "把所有数字都抽成常量合适吗？",
+      "fixture": "A parser splits a qualified name into prefix and localName, with an explained two-part condition and indexes 0 and 1. A physics calculation uses 9.81 as standard gravity. Separate payment and upload limits both currently equal 2 but are governed by different policies.",
+      "expected_decisions": ["Keep clear structural indexes and the explained local count without forced constants", "Give standard gravity a meaningful independently governed name", "Keep unrelated limits independently governed even when their literal values match"],
+      "disallowed_decisions": ["Extract every numeric literal", "Share one constant between independent policies just because values match", "Ban all constants as unnecessary abstraction"]
+    },
+    {
+      "id": "loop-choice-preserves-order-and-errors",
+      "title": "Streams are not a shorter-code requirement",
+      "mode": "review",
+      "triggers": ["control-flow", "naming"],
+      "prompt": "是不是这里都应该改成 Stream？",
+      "fixture": "A changed loop validates order lines sequentially and throws the first field-specific failure before performing any write. Another code section only transforms names into a list with a short pure map expression. A proposed parallelStream validation can reorder which failure is seen.",
+      "expected_decisions": ["Keep the readable ordered validation loop when it preserves distinct first-error semantics", "Allow the short pure stream transformation", "Reject a stylistic parallel conversion that changes ordering or exception behavior"],
+      "disallowed_decisions": ["Require streams to reduce line count", "Introduce trivial helpers solely to hide a pipeline", "Ignore encounter order, nulls or duplicate behavior when changing form"]
+    },
+    {
+      "id": "owned-versus-borrowed-close-failures",
+      "title": "Cleanup follows resource ownership and preserves the primary cause",
+      "mode": "review",
+      "triggers": ["contracts-and-lifecycles", "exception-communication"],
+      "prompt": "检查资源关闭和异常保留",
+      "fixture": "The application borrows an injected shared AutoCloseable client; it opens and owns a separate stream for this operation. With the stream, process() throws ProcessingException and close() also throws IOException. A proposed finally throws a new BusinessException containing only the close error message; another proposal closes the shared client after each call. The project supports try-with-resources.",
+      "expected_decisions": ["Do not close the borrowed shared client at this call boundary", "Prefer try-with-resources for the stream owned here and verify close order and failure exits", "Preserve the processing failure and relevant suppressed close exception through the diagnostic contract", "Do not claim cleanup rolls back external side effects"],
+      "disallowed_decisions": ["Close every AutoCloseable encountered", "Approve losing the primary cause in a throwing finally", "Log the same failure at every layer"]
+    },
+    {
+      "id": "remote-timeout-does-not-prove-rejection",
+      "title": "Lost responses require an outcome and idempotency contract",
+      "mode": "implementation",
+      "triggers": ["remote-calls", "contracts-and-lifecycles", "exception-communication"],
+      "prompt": "下单接口超时，直接重试并提示下单失败可以吗？",
+      "fixture": "A provider may commit an order before its response is lost. There is no confirmed idempotency key or lookup/reconciliation contract. The proposed catch maps the timeout to BUSINESS_REJECTED, adds an immediate repeat call with a fresh request key, and tells the user to retry. Provider transport and parsed business failures are distinguishable.",
+      "expected_decisions": ["Keep timeout distinct from a parsed business rejection and recognize that the provider result may be unknown", "Do not repeat the side effect or recommend retry without evidence that it is safe", "Inspect provider idempotency or reconciliation evidence and ask about the unresolved behavior", "Preserve technical cause and useful provider diagnostics under the existing owner"],
+      "disallowed_decisions": ["Assume the provider performed no work because a timeout occurred", "Use a newly generated key on each attempt as proof of idempotency", "Invent a universal retry count or local error mapping"]
+    },
+    {
+      "id": "retry-owner-and-total-time-budget",
+      "title": "Retry configuration considers existing attempts and total deadlines",
+      "mode": "implementation",
+      "triggers": ["remote-calls", "contracts-and-lifecycles"],
+      "prompt": "已有重试的 SDK 外面再加一层重试，检查是否合理",
+      "fixture": "The SDK makes up to three attempts for an idempotent request, each with its configured timeout. A proposed service loop also makes three attempts and waits between them. The caller's total deadline is two seconds; the supplied request timeout does not cover DNS or TLS setup. A separate requirement only adds response logging to another call.",
+      "expected_decisions": ["Identify multiplied attempts across SDK and service and establish one responsible retry budget", "Include connection/setup coverage, waits and all attempts in the total deadline", "Use evidenced client/provider policies rather than universal timeout or jitter numbers", "Do not add retry behavior or load unrelated lifecycle details for the logging-only requirement"],
+      "disallowed_decisions": ["Assume one request timeout bounds the entire operation", "Add service retries without inspecting the SDK", "Treat every business rejection as retryable", "Require all references for ordinary remote logging"]
     }
   ]
 }

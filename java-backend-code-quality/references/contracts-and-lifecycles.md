@@ -10,7 +10,7 @@ Write down the actual stages before judging individual methods. A common shape i
 entry -> resolve inputs/state -> validate -> transform -> execute side effects -> persist/publish -> respond
 ```
 
-Treat consecutive calls as separate stages when they change processor responsibility, hand an intermediate result to the next operation, or introduce a different side-effect, ordering, or failure boundary. A shared receiver does not merge those stages. At the call site, add a separate intent comment immediately before each stage so the reader can see why the preparation or mapping result is produced, why execution waits for it, and which later stage consumes the result. Keep one comment for multiple calls only when their purpose, precondition, result consumer, and failure semantics are genuinely cohesive
+Treat consecutive calls as separate stages when they change processor responsibility, hand an intermediate result to the next operation, or introduce a different side-effect, ordering, or failure boundary. A shared receiver does not merge those stages. Inspect each stage separately; explain hidden preconditions, ordering, result use, or failure consequences at the relevant call site under [comments-and-javadoc.md](comments-and-javadoc.md). Separate hidden contracts need separate explanations; one comment can cover a cohesive shared invariant. Do not add a comment to every call merely to mark the stages. Stage checkpoints remain required even when the code needs no optional body comment
 
 For each stage, identify:
 
@@ -58,6 +58,10 @@ Assign each resource and delayed action to one visible owner:
 
 Prefer a visible acquire/use/commit-or-cancel lifecycle. Flag cleanup or compensation spread across unrelated layers when ownership becomes ambiguous.
 
+Determine whether the current boundary owns a resource, borrows it, or transfers ownership to a later consumer. Do not close an injected client, shared connection, caller stream, or asynchronous handoff solely because it implements `AutoCloseable`. For resources this boundary actually owns, prefer try-with-resources when the project's Java version and API support it. Check acquisition and reverse close order, partial acquisition failure, and every exit path. Keep the primary failure and any suppressed close failures available for diagnosis; a throwing `finally` or replacement exception must not erase them. Closing a resource does not roll back already completed external side effects
+
+For remote timeouts and repeated attempts, apply [remote-calls.md](remote-calls.md). A timeout does not prove that the provider rejected the request or performed no side effect
+
 ## Validation Ownership
 
 Locate one authoritative owner for each rule:
@@ -81,3 +85,7 @@ Map tests to the changed contracts and lifecycles that apply:
 - authentication and authorization rejection before protected work
 - transaction rollback, propagation, and asynchronous boundaries
 - stale references after behavior, names, or ownership move
+
+## Sources And Applicability
+
+[Oracle's try-with-resources tutorial](https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html) explains owned-resource cleanup, close order, and suppressed exceptions. It is a JDK 8-era tutorial; verify the actual Java version and API ownership contract. [AWS's timeout and retry guidance](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/) informs the remote lifecycle checks. These sources do not require closing borrowed resources, adding retries, or claiming atomicity. Source links are background, not mandatory reading for every task

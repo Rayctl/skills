@@ -72,6 +72,8 @@ Verify that the name and contract match the actual accepted values, exclusions, 
 
 ## Method Shape
 
+Choose method boundaries by one coherent responsibility, the information a caller needs, and real behavior ownership. Shortness, parameter count, and reuse are signals to inspect, not quality thresholds. Splitting a coherent operation into tiny wrappers can increase reading cost; a longer method is not automatically acceptable either when it mixes independent contracts or makes state and failure paths difficult to verify. Extract a meaningful operation when it reduces that burden, and write compact wrappers back at their use sites when extraction hides the needed evidence
+
 Use intermediate values and parameters only when they expose a real processing stage, contract, state, source, or result consumer. Do not introduce generic carriers or parameter objects merely to shorten a signature or reduce visible lines.
 
 Use deferred functions only when a lock, retry, transaction, cache, fallback, or asynchronous API genuinely requires deferred execution. Verify when and how often the function runs, which state it captures, and whether exception behavior remains unchanged.
@@ -89,6 +91,8 @@ Separate three kinds of information:
 - traversal state: ancestor conditions and root identity may differ from the current node's properties; preserve them explicitly or simplify traversal only when equivalent behavior is demonstrated
 
 Remove an application-controlled parameter whose relevant callers always pass one value and which has no present variation requirement, after checking implicit callers and signature contracts. This applies to fixed paths and other values as well as booleans. Preserve externally required signatures. Retain genuine dynamic state with clear names; group parameters only when they form a cohesive value with an independent contract.
+
+A repeated `startDate, endDate` pair may justify an existing or small date-range value when those values jointly express an interval with shared validation and boundary semantics. A bag of unrelated flags does not gain cohesion by becoming an object. Do not pass a large request or entity merely to reduce the visible argument count: retain narrow inputs when they make dependencies clearer. Before deriving a value inside the method instead of passing it, check null and absence behavior, mutable snapshots, access side effects, and evaluation timing or frequency. Reading a changing value twice is not equivalent to receiving one caller-selected snapshot
 
 Keep readable explicit entry calls when they already reveal the processed regions and order. A location enum should describe location; it need not also select nodes, run validation, or own changing traversal state. Do not add selectors, automatic loops, short forwarding methods, or parameter carriers solely to hide literal flags. Compare the whole proposed change with the original call, including new navigation and types.
 
@@ -113,3 +117,7 @@ Report a needless extraction as `P2` when it conceals ordering, side effects, fa
 Assign a finding only to an evidenced rule violation or concrete readability or behavior problem. Another valid representation or a user-requested improvement alone is not a `P2` or `P3` issue. Clear fixed path strings can remain without a required typed contract or demonstrated defect; an enum may be discussed as an option without grading the existing form. This does not exempt opaque flags, hidden semantics, or applicable explicit/default rules.
 
 Use `P3` for unclear parameter presentation or unjustified nesting that only affects reading. A preference-only nesting issue is at most `P3`; wrong flag semantics, changed validation order, unintended object retention, or other demonstrated behavior and lifecycle risks follow impact-based severity.
+
+## Sources And Local Choices
+
+Fowler's [Inline Function](https://refactoring.com/catalog/inlineFunction.html) and [Extract Function](https://refactoring.com/catalog/extractFunction.html) are complementary choices, not a requirement to minimize every method. [Introduce Parameter Object](https://refactoring.com/catalog/introduceParameterObject.html) illustrates grouping values with a shared meaning. Apply the caller and behavior tests above instead of a numeric size or argument limit. This Skill's preference for showing compact delegation and fixed exception wording at use sites remains a local choice; it is not attributed to a universal DRY rule. Source links are background, not a requirement to browse during implementation

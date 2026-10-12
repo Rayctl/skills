@@ -52,6 +52,12 @@ if (nameParts.length == 2) {
 
 This is an illustrative branch fragment, not a complete implementation. The comment explains why two parts are expected; the names explain their roles. Do not invent a constant, enum, wrapper, or helper for every `0`, `1`, or `2`. A constant is appropriate when a value has an independently governed contract, configurable limit, or identity used across responsibilities. Names and comments must match the actual accepted structure and preserve invalid-input handling.
 
+For example, a named physical constant or externally governed timeout limit has a meaning independent of one expression; a local part index may already be clear from `prefix` and `localName`. Equal literals are not necessarily the same concept, and sharing a constant must not couple unrelated limits. Fowler's [Replace Magic Literal](https://refactoring.com/catalog/replaceMagicLiteral.html) illustrates the independent-concept case with standard gravity; it does not require extracting every literal
+
+## Choose Loops Or Streams By The Whole Path
+
+Use the repository's established style and the clearest form for the actual operation. A short pure transformation or collection can use a stream; validation with distinct failure reasons, ordering-sensitive updates, early exit, or side effects may read better as a loop. Do not convert a loop to a stream just to shorten it, or extract trivial methods merely to make a pipeline look fluent. Verify encounter order, duplicate handling, evaluation count, null behavior, and exceptions when changing form. Never introduce parallel execution solely as a stylistic change
+
 ## Final Control-Flow Review
 
 After editing, trace each changed path from condition to outcome. Check scattered repeated decisions, meaningful structural literals, and dense ternaries as well as braces and wrapping. Reapply the ternary rule to expressions combining null handling with allocation or calls; do not overlook them merely because the style checker passes.

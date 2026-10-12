@@ -82,6 +82,8 @@ class SemanticEvaluationValidationTests(unittest.TestCase):
             {
                 "comment-describes-current-invariant",
                 "comment-preserves-current-compatibility-fact",
+                "comment-deletion-test-removes-template",
+                "comment-semantic-delta-keeps-boundary",
             }.issubset(case_ids)
         )
 

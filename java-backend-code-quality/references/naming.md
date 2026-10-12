@@ -14,6 +14,8 @@ Do not make the caller depend on an implementation jump or JavaDoc to learn the 
 
 Apply the same semantic check to fields, parameters, and local variables. When the type does not fully identify the value, the name should reveal its data, state, source, scope, or intended consumer. Do not use generic carriers merely because the static type is broad.
 
+Use the same established domain term for the same concept across the changed path. Do not alternate synonyms that suggest different responsibilities, or add every implementation detail to a name. Include only distinctions the caller needs; receiver context and types may provide the rest. Names such as `validated`, `latest`, or `saved` describe an established state, not an intended next step. Rename or separate a value when its role changes rather than letting a stale name claim a guarantee the code has not established
+
 ## Generic Actions
 
 Generic verbs need a concrete subject, product, rule, or outcome:
@@ -118,3 +120,7 @@ A persistence abstraction that coordinates cross-store writes, compensation, or 
 After implementation, re-read the primary call sites and rename a method if its basic responsibility is not evident there. Split or expose a stage when a generic name hides unrelated actions.
 
 Report a misleading name as `P2` when it hides persistence, absence, exception policy, or lifecycle and could cause misuse. Use `P3` when it mainly adds navigation or local reading cost.
+
+## Sources And Local Choices
+
+The [Clean Code publisher contents](https://www.informit.com/store/clean-code-a-handbook-of-agile-software-craftsmanship-9780132350884) identifies meaningful names, functions, error handling, and boundaries as distinct topics; it is a topic guide, not evidence for detailed rules or a claim that the whole book was reviewed. [Google Java naming guidance](https://google.github.io/styleguide/javaguide.html#s5-naming) supplies Java naming conventions. Concrete caller contracts govern this reference. Collection suffixes, `To` conversions, and avoiding vague `normalize` names are this Skill's defaults or confirmed user preferences, not conventions imposed by those sources on every repository

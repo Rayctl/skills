@@ -39,6 +39,10 @@ Repeated decisions, branch concentration, structural-literal meaning, and whethe
 
 Incremental checkpoints are an implementation workflow, not a checker rule. The read-only checker observes a selected code snapshot and cannot prove that earlier stage handoffs were reviewed during editing.
 
+Comment wording, pronoun clarity, useful information, and evidence for claimed reasons or guarantees require semantic review. Do not use a word blacklist or add filler to silence an intent finding. Missing-comment reports are candidates for inspection: preserve required documentation, verify the hidden rule, and explain it concretely; the checker does not prove that a comment is accurate or readable.
+
+Method cohesion, cohesive parameter values, changing snapshots, loop-versus-stream choice, resource ownership, suppressed failures, timeout uncertainty, retry amplification, and idempotency require semantic review. The checker does not enforce method-size or parameter-count limits, extract every literal, require streams, close every `AutoCloseable`, or prescribe retry counts. Source-informed recommendations remain subordinate to current contracts and explicit project rules.
+
 ## Exit Codes
 
 - `0`: no violations for the selected scope
