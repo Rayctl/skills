@@ -1,10 +1,12 @@
 import importlib.util
 import io
 import json
+import os
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -300,6 +302,28 @@ class InstallationVerificationTests(unittest.TestCase):
 
         self.assertEqual(2, code)
         self.assertEqual("source_missing_skill_entrypoint", result["reason"])
+
+    def test_directory_enumeration_failure_is_error_not_match(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = self.create_skill(Path(temporary) / "source", {})
+            target = self.create_skill(
+                Path(temporary) / "target", {"references/unseen.md": "extra\n"}
+            )
+            code, result = self.run_main(source, target)
+            self.assertEqual(1, code)
+            self.assertEqual(["references/unseen.md"], result["extra"])
+            original_scandir = os.scandir
+
+            def inaccessible_scandir(path):
+                if Path(path) == target / "references":
+                    raise PermissionError("fixture enumeration denied")
+                return original_scandir(path)
+
+            with patch.object(self.verifier.os, "scandir", side_effect=inaccessible_scandir):
+                code, result = self.run_main(source, target)
+
+        self.assertEqual(2, code)
+        self.assertEqual({"status": "ERROR", "reason": "unreadable_directory"}, result)
 
 
 if __name__ == "__main__":

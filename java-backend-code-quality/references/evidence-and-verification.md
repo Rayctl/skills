@@ -6,6 +6,8 @@ Read this reference before modifying existing behavior or data semantics, when a
 
 Use a light loop for simple changes and a checkpoint loop for complex changes. Complexity is semantic, not a line-count threshold.
 
+Preserve the user's approved requirements and behavior changes throughout discovery and verification. Source and tests establish previous behavior; they do not veto an authorized contract change. Preserve unaffected semantics, update affected callers and tests, and ask only about remaining material conflicts that the accepted requirements do not resolve.
+
 A change is usually simple when it is a local rename, direct assignment, getter, pure conversion, isolated branch, or test-data adjustment with no external call, persistent state, cross-field invariant, lifecycle, error-policy, or diagnostic change. Read the target neighborhood, route only triggered references, make the edit, then reread the changed method and final diff. Do not pause after every line or load unrelated references.
 
 Treat a change as complex when it has multiple business stages, changes a boundary call, reads or writes a database, cache, file, queue, or remote service, crosses a transaction or asynchronous boundary, changes state or lifecycle, has retries or compensation, changes error or logging behavior, or relies on related fields jointly expressing a contract. A simple task becomes complex as soon as the edit introduces one of these concerns. Do not downgrade the checks merely because an individual statement is short.
@@ -25,7 +27,7 @@ Implement complex work in meaningful slices. After each meaningful stage or boun
 
 Do not write all stages first and postpone these checks until the final diff. A slice may contain the small statements needed to complete one responsibility, but it must leave a readable handoff to the next consumer before implementation continues. A database write followed by a remote notification, for example, is two checkpoints even if each call is one line.
 
-If a checkpoint reveals that the requirement, data relationship, error meaning, or existing special handling was misunderstood, stop at that boundary. Report the evidence, the changed interpretation, the concrete options and impact, and ask before continuing when behavior would differ. Preserve already-correct stages and discard only conclusions invalidated by the new evidence.
+If a checkpoint reveals that the requirement, data relationship, error meaning, or existing special handling was misunderstood, stop at that boundary. Report the evidence, the changed interpretation, the concrete options and impact, and ask when the remaining choice would change behavior beyond the user's approved requirements. Preserve already-correct stages and discard only conclusions invalidated by the new evidence.
 
 The final pass is not a substitute for checkpoints. It rereads the complete changed path, verifies cross-stage invariants and final callers, runs the deterministic checker and focused tests, and records checks that could not run. For a simple change it may be the only post-edit review; for a complex change it confirms every checkpoint rather than relying on a final diff glance.
 
@@ -65,7 +67,7 @@ Do not treat every nearby example as a project rule. Classify what supports a de
 - **local guidance**: deliberately recorded `.codex/project-guidance.md` hints that reduce repeated discovery but remain below current repository evidence
 - **recommendation**: a Skill default or engineering preference used when stronger evidence does not decide the issue
 
-Authority defines intended constraints; observed behavior establishes what the system currently does. Neither automatically overrides the other when they conflict. Surface the conflict and its impact instead of selecting whichever source is more convenient. Tests may preserve a bug, source may violate a published contract, and a common local pattern may still be unsafe.
+Authority defines intended constraints; observed behavior establishes what the system currently does. Existing behavior does not veto an explicit approved change. Surface unresolved conflicts between authoritative requirements or newly discovered compatibility obligations and explain their impact; do not ask again merely because the old code or tests describe the previous behavior. Tests may preserve a bug, source may violate a published contract, and a common local pattern may still be unsafe.
 
 When applying a rule, state material evidence in the reasoning or finding. Do not present local guidance or a recommendation as an existing repository standard. Local guidance may direct targeted verification and may beat a generic recommendation when stronger evidence is silent, but it cannot create a finding by itself. Examples illustrate a rule; they do not create a universal ban.
 
@@ -91,7 +93,7 @@ The code produced by an edit is provisional until later tools finish. Formatters
 After the last mutating tool for the task:
 
 1. reread repository status, the final task-owned diff, and every affected file whose behavior or documentation matters
-2. include newly generated, renamed, staged, and untracked files in the task scope
+2. include task-owned renamed, staged, and untracked files; validate affected generated outputs or contracts when relevant, without turning generated files into style-review targets
 3. recompute reference triggers when the final code introduces a helper, exception, remote call, lifecycle boundary, control-flow change, or other routed concern
 4. rerun checks invalidated by the final changes, including compilation, focused tests, and the deterministic style checker where applicable
 5. distinguish checks that passed from checks that did not run, could not start, or observed only part of the final surface

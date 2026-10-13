@@ -56,7 +56,13 @@ def hash_file(path: Path) -> str:
 
 def collect_files(root: Path) -> dict[str, str]:
     files: dict[str, str] = {}
-    for current, directory_names, file_names in os.walk(root, followlinks=False):
+
+    def enumeration_error(exception: OSError) -> None:
+        raise InstallationInputError("unreadable_directory") from exception
+
+    for current, directory_names, file_names in os.walk(
+        root, followlinks=False, onerror=enumeration_error
+    ):
         current_path = Path(current)
         kept_directories: list[str] = []
         for name in sorted(directory_names):

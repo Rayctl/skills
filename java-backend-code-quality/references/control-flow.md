@@ -85,7 +85,7 @@ A demonstrated local reading problem is `P3`. Hidden validation order, error pre
 
 ## Braces
 
-Every Java `if`, `else`, `for`, `while`, and `do while` body uses braces, including a single `return`, `throw`, `break`, or `continue`. An `else if` chain is valid when every actual branch body is braced; no extra wrapper is needed around the chain.
+As the default preference, every Java `if`, `else`, `for`, `while`, and `do while` body uses braces, including a single `return`, `throw`, `break`, or `continue`. Explicit user rules and formal repository conventions take precedence. An `else if` chain is valid when every actual branch body is braced; no extra wrapper is needed around the chain.
 
 ```java
 if (request == null) {

@@ -18,6 +18,8 @@ py -3 "<skill-directory>\scripts\check_java_backend_style.py" [--exclude <path>]
 
 The checker is read-only. It must not infer authorship by scanning the whole project or report unrelated historical, generated, or vendored code. Read surrounding code only as context. If Git cannot establish a safe change surface, require an explicit baseline instead of guessing.
 
+Changed-mode diffs use `--text`, with external diff and text conversion disabled, so a binary Git attribute cannot silently hide Java text changes. Unexpected non-text diff output is an input error, not a clean result. Brace findings carry evidence from the control header through its corresponding statement body, allowing body-only edits and brace deletions to intersect the selected scope without scanning unrelated statements as new findings.
+
 ## Rule Identifiers
 
 - `STYLE-COMMENT-001`: a Java comment ends with `。` or `.`
@@ -32,6 +34,8 @@ The guard rule permits pure local-value extraction between guards. `STYLE-BRACE-
 Short predicates that compose a useful business or protocol rule must be distinguished from null-safe getters and delegation wrappers by semantic review. The checker does not decide extraction from line count, boolean-operator count, naming prefixes, or reuse count.
 
 Optional alternative designs do not automatically constitute findings; semantic review must identify an evidenced violation or concrete problem before assigning severity. Guidance metadata validation does not check Git commit existence, ancestry, remote freshness, or infrastructure changes.
+
+The checker applies fixed style rules and does not read repository instructions or formatter configuration. A punctuation, spacing, or brace diagnostic is a candidate, not proof of a project violation. If an explicit user rule or formal project standard overrides that preference, keep the required form, explain the diagnostic, and do not rewrite compliant code or report a preference-only finding. Report raw checker results separately from the reviewed disposition; do not claim exit `0` when it returned `1`.
 
 Parameter meaning, object properties versus invocation or traversal context, flag-removal equivalence, and the benefit of nested classes or enums require semantic review. The checker does not count boolean literals to force enums or wrappers, reject all nested types, or establish that a project hint's named API or offline-build assumptions still apply.
 

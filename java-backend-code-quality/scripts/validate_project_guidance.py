@@ -30,7 +30,21 @@ def result(status: str, reason: str | None = None) -> int:
     return 0 if status in {"VALID", "VALID_LEGACY", "UNVERIFIED"} else 1
 
 
-def parse_frontmatter(text: str) -> dict[str, str] | None:
+class MetadataError(ValueError):
+    """Metadata cannot be interpreted without guessing or overwriting values."""
+
+
+def scalar_value(raw: str) -> str:
+    value = raw.strip()
+    if value.startswith(('"', "'")):
+        quote = value[0]
+        if len(value) < 2 or value[-1] != quote or quote in value[1:-1]:
+            raise MetadataError("malformed_metadata")
+        return value[1:-1]
+    return value.split(" #", 1)[0].rstrip()
+
+
+def frontmatter_lines(text: str) -> list[str] | None:
     lines = text.splitlines()
     if len(lines) < 3 or lines[0].strip() != "---":
         return None
@@ -38,15 +52,55 @@ def parse_frontmatter(text: str) -> dict[str, str] | None:
         end = next(index for index, line in enumerate(lines[1:], start=1) if line.strip() == "---")
     except StopIteration:
         return None
+    return lines[1:end]
 
-    metadata: dict[str, str] = {}
-    for line in lines[1:end]:
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if ":" not in line or line.startswith((" ", "\t")):
+
+def metadata_version(lines: list[str]) -> str | None:
+    versions = []
+    for line in lines:
+        if line.startswith((" ", "\t", "#")) or ":" not in line:
             continue
         key, value = line.split(":", 1)
-        metadata[key.strip()] = value.strip().strip('"\'')
+        if scalar_value(key) == "schema_version":
+            versions.append(scalar_value(value))
+    if len(versions) > 1:
+        raise MetadataError("duplicate_metadata_key")
+    return versions[0] if versions else None
+
+
+def parse_frontmatter(text: str) -> dict[str, Any] | None:
+    lines = frontmatter_lines(text)
+    if lines is None:
+        return None
+
+    metadata: dict[str, Any] = {}
+    commits: dict[str, str] | None = None
+    for line in lines:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if "\t" in line or ":" not in line:
+            raise MetadataError("malformed_metadata")
+        key, value = line.split(":", 1)
+        key = scalar_value(key)
+        if not key:
+            raise MetadataError("malformed_metadata")
+        if line.startswith(" "):
+            if commits is None or not line.startswith("  ") or line.startswith("   "):
+                raise MetadataError("malformed_metadata")
+            if key in commits:
+                raise MetadataError("duplicate_section_commit")
+            commits[key] = scalar_value(value)
+            continue
+        commits = None
+        if key in metadata:
+            raise MetadataError("duplicate_metadata_key")
+        if key == "verified_commits":
+            if value.strip() and not value.lstrip().startswith("#"):
+                raise MetadataError("malformed_section_commits")
+            commits = {}
+            metadata[key] = commits
+        else:
+            metadata[key] = scalar_value(value)
     return metadata
 
 
@@ -58,11 +112,13 @@ def validate(path: Path) -> int:
     except UnicodeError:
         return result("ERROR", "invalid_utf8")
 
-    metadata = parse_frontmatter(text)
-    if metadata is None:
+    lines = frontmatter_lines(text)
+    if lines is None:
         return result("UNVERIFIED", "missing_frontmatter")
-
-    raw_version = metadata.get("schema_version")
+    try:
+        raw_version = metadata_version(lines)
+    except MetadataError as exception:
+        return result("INVALID", str(exception))
     if raw_version is None:
         return result("UNVERIFIED", "missing_schema_version")
     try:
@@ -70,27 +126,20 @@ def validate(path: Path) -> int:
     except ValueError:
         return result("UNVERIFIED", "invalid_schema_version")
 
+    if version not in {1, 2}:
+        return result("UNVERIFIED", "unsupported_schema_version")
+
+    try:
+        metadata = parse_frontmatter(text)
+    except MetadataError as exception:
+        return result("INVALID", str(exception))
+
     if version == 1:
         if not SHA_PATTERN.fullmatch(metadata.get("verified_commit", "")):
             return result("UNVERIFIED", "legacy_commit_missing_or_invalid")
         return result("VALID_LEGACY")
 
-    if version != 2:
-        return result("UNVERIFIED", "unsupported_schema_version")
-
-    section_lines = text.splitlines()
-    in_commits = False
-    commits: dict[str, str] = {}
-    for line in section_lines:
-        if line.strip() == "verified_commits:":
-            in_commits = True
-            continue
-        if in_commits and line and not line[0].isspace():
-            break
-        if in_commits and ":" in line:
-            key, value = line.strip().split(":", 1)
-            commits[key.strip()] = value.strip().strip('"\'<>')
-
+    commits = metadata.get("verified_commits", {})
     if not commits:
         return result("UNVERIFIED", "section_commits_missing")
     unknown = set(commits) - SECTIONS

@@ -6,12 +6,12 @@
 
 | Skill | 用途 |
 | --- | --- |
-| [git-latest-code-check](git-latest-code-check/README.md) | 在规划或修改代码前检查本地分支是否包含远端最新提交，并在明确授权后仅执行安全快进更新 |
+| [git-latest-code-check](git-latest-code-check/README.md) | 检查代码基线；对干净且确认落后的分支尝试一次安全快进，推送前核对指定的已有远端分支 |
 | [java-backend-code-quality](java-backend-code-quality/README.md) | 在 Java 后端编码、修改和变更检查阶段应用契约、命名、注释、异常及复杂逻辑质量规则 |
 
 ## 推荐流程
 
-对 Git 仓库中的代码任务，先由 `$git-latest-code-check` 确认本地代码基线和远端新鲜度，再按语言加载对应质量 Skill。Git 检查只读，不会自动拉取或修改工作区；只有用户明确授权且工作区干净时，才允许执行安全快进更新。
+对 Git 仓库中的代码任务，先由 `$git-latest-code-check` 确认本地代码基线和远端新鲜度，再按语言加载对应质量 Skill。检查本身只读；工作区干净且结果确认为 `BEHIND` 时，先告知用户，再按 Skill 已授权的策略尝试一次安全快进。无法确定提交关系时，先请求授权；工作区有修改时禁止更新，只按 Skill 的范围规则继续已有相关工作。缺少或删除远端目标、未完成 Git 操作及本地 Git 错误会停止开发。实际推送前还要独立核对指定的已有目标分支。
 
 Java 任务使用 `$java-backend-code-quality`。它默认只检查当前任务涉及的 Java 生产代码和测试代码：复杂行为按需加载事务、异常、远程调用和生命周期规则，简单任务不会扫描无关历史代码。
 

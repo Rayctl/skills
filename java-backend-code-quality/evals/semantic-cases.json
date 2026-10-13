@@ -375,7 +375,7 @@
       "fixture": "The initial patch passes review. A formatter and Git hook then rewrite imports, comments, and one generated Java file before completion.",
       "expected_decisions": [
         "Reread repository status, the final diff, and all affected files after the tools finish",
-        "Include the generated file, recompute triggered references, and rerun invalidated checks",
+        "Verify the affected generated output or contract without treating it as a style-review target, recompute triggered references, and rerun invalidated checks",
         "Report only checks that apply to the observed final state"
       ],
       "disallowed_decisions": [
@@ -607,11 +607,13 @@
       "expected_decisions": [
         "Recognize that the path is tracked despite matching an exclude rule",
         "Stop automatic local-only registration and tell the user the conflict",
-        "Do not silently create or refresh the file"
+        "Do not silently create or refresh the file",
+        "Continue an otherwise permitted code task using repository evidence; stop only the local-only registration or refresh"
       ],
       "disallowed_decisions": [
         "Treat check-ignore alone as proof that the file is untracked",
-        "Modify .gitignore automatically"
+        "Modify .gitignore automatically",
+        "Stop unrelated permitted code work solely because optional guidance is tracked"
       ],
       "assertions": [
         "The answer distinguishes ignore matching from index tracking"
@@ -905,7 +907,7 @@
       "mode": "implementation",
       "triggers": ["project-guidance"],
       "prompt": "核实项目提示，只刷新我授权的 Logging 章节",
-      "fixture": "Git handoff is CURRENT with confirmed freshness at local L. The v2 metadata validator returns VALID. Logging records a well-formed SHA absent from local Git; Dependencies And Utilities records an existing commit not ancestral to L. The user approves rechecking and refreshing only Logging. Relevant infrastructure is committed.",
+      "fixture": "Git handoff is CURRENT with confirmed freshness at local L, and current HEAD remains L. The v2 metadata validator returns VALID. Logging records a well-formed SHA absent from local Git; Dependencies And Utilities records an existing commit not ancestral to L. The user approves rechecking and refreshing only Logging. Relevant infrastructure is committed.",
       "expected_decisions": [
         "Treat both section baselines as unverified despite valid metadata shape",
         "Check local commit resolution and ancestry without fetching solely to validate old hints",
@@ -924,7 +926,7 @@
       "mode": "implementation",
       "triggers": ["project-guidance"],
       "prompt": "日志提示已重新核实，请只更新 Logging 的基线",
-      "fixture": "Git handoff is CURRENT, remoteFreshness=confirmed, dirty=true at local L. The only uncommitted change is unrelated ordinary business Java code. Logging configuration and infrastructure are committed and have been reverified; the user authorizes refreshing Logging. No other chapter was rechecked.",
+      "fixture": "Git handoff is CURRENT, remoteFreshness=confirmed, dirty=true at local L, and current HEAD remains L. The only uncommitted change is unrelated ordinary business Java code. Logging configuration and infrastructure are committed and have been reverified; the user authorizes refreshing Logging. No other chapter was rechecked.",
       "expected_decisions": [
         "Keep confirmed remote freshness separate from the dirty flag",
         "Permit the authorized Logging refresh at L after exclusion and tracking checks",
@@ -1293,6 +1295,61 @@
       "disallowed_decisions": ["Assume one request timeout bounds the entire operation", "Add service retries without inspecting the SDK", "Treat every business rejection as retryable", "Require all references for ordinary remote logging"]
     },
     {
+      "id": "same-task-committed-infrastructure-invalidates-guidance",
+      "title": "Current HEAD includes infrastructure committed after the task handoff",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "evidence-and-verification"],
+      "prompt": "这次任务里刚提交了日志设施改动，请核实并只刷新 Logging 提示",
+      "fixture": "Git returned CURRENT at task local C0. Guidance Logging is verified at C0. Later in this task pom.xml and the log wrapper change and are committed as C1, a descendant of C0; the worktree is clean. The user approves a Logging refresh only, and has already selected the task behavior.",
+      "expected_decisions": ["Observe current HEAD C1 and inspect C0..C1 plus current worktree paths", "Invalidate affected hints despite the clean worktree and reverify Logging from current evidence", "Record C1 for authorized Logging only after tracking and exclusion checks; leave other chapters untouched", "Reuse the original Git freshness observation without claiming the remote remains unchanged or discarding the approved task behavior"],
+      "disallowed_decisions": ["Inspect only through C0 and treat hints as unchanged", "Record C0 as if it contained the new wrapper", "Rerun a remote check merely to use project hints", "Mark all chapters reverified because one was refreshed"],
+      "assertions": ["The proposed Logging baseline is C1, and later committed changes are included in invalidation"]
+    },
+    {
+      "id": "rewritten-head-blocks-guidance-refresh",
+      "title": "A rewritten local history cannot inherit refresh eligibility",
+      "mode": "implementation",
+      "triggers": ["project-guidance", "evidence-and-verification"],
+      "prompt": "当前本地历史已经改写，核实项目提示后继续处理已确认的需求",
+      "fixture": "Git returned CURRENT at task local C0. The current HEAD C2 does not descend from C0 after a user-requested history rewrite. Current hints contain a section SHA that also is not an ancestor of C2. The user approved the original behavior change but has not approved refreshing hints against a new Git handoff.",
+      "expected_decisions": ["Treat the non-ancestor section as unverified and use targeted current evidence where repository work is permitted", "Block metadata refresh and follow the Git workflow for the changed history", "Keep approved requirements, scope and unaffected conclusions; revalidate only affected code conclusions"],
+      "disallowed_decisions": ["Use C0 freshness to mark C2 hints verified", "Treat a failed diff as an empty successful verification", "Restart requirement gathering or discard the user decision because the commit changed"],
+      "assertions": ["Metadata remains unchanged, and approved task intent is explicitly retained"]
+    },
+    {
+      "id": "approved-behavior-change-updates-old-tests",
+      "title": "Previous behavior is evidence rather than a veto on an approved change",
+      "mode": "implementation",
+      "triggers": ["evidence-and-verification", "exception-communication"],
+      "prompt": "把缺失记录时返回 null 改为抛出明确的不存在异常，同步调用方和测试",
+      "fixture": "The user explicitly approves missing-record lookup to throw a not-found exception. Existing implementation returns null and tests assert null. Present-record behavior and unrelated validation must stay unchanged. No external published contract prohibits the approved change.",
+      "expected_decisions": ["Implement the approved absence behavior and adjust affected callers and tests", "Preserve present-record and unrelated validation semantics", "Do not ask again merely because old tests encode the previous behavior"],
+      "disallowed_decisions": ["Refuse the change because null semantics must always remain unchanged", "Silently expand the change to unrelated validation or error paths"],
+      "assertions": ["Both implementation and old null-expecting tests change within the approved scope"]
+    },
+    {
+      "id": "pure-local-mapping-skips-remote-rules",
+      "title": "Generic mapping vocabulary does not trigger remote-call references",
+      "mode": "implementation",
+      "triggers": ["naming"],
+      "prompt": "只把纯内存 DTO 转换中的局部变量改名，行为保持不变",
+      "fixture": "A local mapper converts already-loaded DTO fields. The edit is only a local identifier rename; it introduces no failure message, catch, log, HTTP, RPC, SDK or provider boundary, and no project hint is needed.",
+      "expected_decisions": ["Use focused local naming evidence and a light final reread", "Do not load remote-call or exception references solely because the file maps data", "Do not offer project-guidance initialization"],
+      "disallowed_decisions": ["Treat every conversion or map as a third-party integration", "Load all references to perform a simple rename"],
+      "assertions": ["Remote-call and exception references are absent from the relevant-reference list"]
+    },
+    {
+      "id": "collection-suffix-respects-formal-convention",
+      "title": "Formal naming conventions take precedence over container-suffix defaults",
+      "mode": "review",
+      "triggers": ["naming"],
+      "prompt": "检查集合命名是否符合项目规范和调用点可读性",
+      "fixture": "Formal repository instructions require one-value-per-key maps to use names such as activeSchemaByCode without a Map suffix. A changed map follows that rule and has explicit unique-key validation. No task-specific user rule overrides the repository convention.",
+      "expected_decisions": ["Accept the formal map convention rather than require the default Map suffix", "Keep evaluating object, established state, key cardinality and duplicate policy", "Do not report a preference-only finding when a stronger rule overrides it"],
+      "disallowed_decisions": ["Report P2 or P3 solely for the absent Map suffix", "Ignore nondeterministic duplicate handling because the suffix is optional"],
+      "assertions": ["No suffix finding is emitted, while semantic map checks remain active"]
+    },
+    {
       "id": "enhanced-for-query-result-local",
       "title": "Separate a query result from enhanced-for traversal",
       "mode": "implementation",
@@ -1321,6 +1378,17 @@
       "fixture": "A lazy Iterable<Record> is obtained inside the try-with-resources scope of an owned Session and fetches records only during iteration. A proposed refactor eagerly collects it to a List before entering that scope. Separately, while ((page = client.fetchNextPage()) != null) intentionally acquires another page each iteration; a proposed hoist fetches just once before the while.",
       "expected_decisions": ["Keep lazy acquisition and iteration within the owning session scope without forced materialization", "Do not describe a named lazy iterable as a completed snapshot", "Preserve per-iteration page acquisition in the while rather than applying enhanced-for evaluation rules", "Reject changes to resource lifetime or fetch timing despite a readability goal"],
       "disallowed_decisions": ["Collect every query result into List for uniform formatting", "Move the lazy source outside its resource owner", "Hoist repeated page fetching out of the while", "Claim that every loop source is evaluated once"]
+    },
+    {
+      "id": "formal-style-overrides-checker-preferences",
+      "title": "Fixed checker diagnostics do not override formal project style",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc", "control-flow", "checker"],
+      "prompt": "项目要求 JavaDoc 以句号结尾，自动检查报错了，应该改吗？",
+      "fixture": "The formal repository documentation standard requires full stops in JavaDoc, and its formatter requires two blank lines between methods. Changed code follows both. The deterministic checker returns exit 1 with STYLE-COMMENT-001 and STYLE-METHOD-001. There is no contrary explicit user instruction or demonstrated behavior defect.",
+      "expected_decisions": ["Keep the formal project formatting rather than rewriting compliant code to satisfy Skill defaults", "Report the raw exit 1 and explain that these preference diagnostics are overridden", "Do not assign a preference-only finding to the compliant code"],
+      "disallowed_decisions": ["Claim the checker returned exit 0", "Treat every checker diagnostic as a mandatory defect", "Remove required JavaDoc punctuation or collapse required spacing"],
+      "assertions": ["The reviewed disposition distinguishes raw checker output from actual project violations"]
     }
   ]
 }

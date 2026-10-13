@@ -17,9 +17,9 @@ Before implementation, classify the change and inspect its semantic neighborhood
 
 ## Git Baseline And Project Hints
 
-Reuse the full `local` commit from `$git-latest-code-check`; do not rerun it. `CURRENT`, `AHEAD`, and `UPDATED` confirm remote freshness even with `dirty=true`. Unconfirmed freshness or uncommitted relevant infrastructure blocks guidance baseline refresh; unrelated business edits alone do not.
+Reuse Git's task `local` and freshness result; do not repeat remote checks. Observe current local HEAD when checking hints, including later commits and worktree changes. Refresh requires confirmed freshness, current HEAD equal to or descending from `local`, and committed relevant infrastructure. See the guidance reference for missing handoffs and changed history.
 
-For confirmed worktrees, read [references/project-guidance.md](references/project-guidance.md) when the task depends on project-specific logging, dependencies or utilities, remote calls, exceptions, build verification, or a declared formatting/naming convention. Routine formatting does not trigger it. Recompute triggers during implementation: if a new log, dependency, remote client, exception path, build change, or project convention appears, pause before editing that area, load the matching reference, and apply the flow. If guidance is missing, ask once whether to initialize relevant sections and which stable hints to record, such as logger entry points, utility or wrapper choices, error handling, build commands, or a repository-confirmed masking policy. Do not assume masking is mandatory. Never create or refresh it without approval. Load only relevant sections. Simple rename, comment-only change, local branch adjustment, or ordinary CRUD does not initialize it.
+For confirmed worktrees, read [references/project-guidance.md](references/project-guidance.md) in implementation mode when project-specific logging, utilities, remote calls, exceptions, build verification, or a declared style convention matters. Recompute triggers before editing newly affected areas. Load only relevant sections; ask once before initializing or refreshing missing hints unless already authorized. Do not assume masking is mandatory. Routine formatting, simple renames, comment-only edits, local branches, and ordinary CRUD do not initialize hints.
 
 ## Reference Routing
 
@@ -29,8 +29,8 @@ Read only the matching references:
 - [structure-choice.md](references/structure-choice.md): growing implementations, repeated varying flows, scattered creation, or runtime-selected behavior during implementation
 - [comments-and-javadoc.md](references/comments-and-javadoc.md): changed classes, methods, JavaDoc, comments, guard clusters, or non-trivial method bodies
 - [naming.md](references/naming.md): broad names, state or collection vocabulary, enum lookups, renames, `normalize`, or unclear caller responsibility
-- [exception-communication.md](references/exception-communication.md): changed failures, messages, logs, `catch`, `finally`, or error mapping
-- [remote-calls.md](references/remote-calls.md): HTTP, Feign, RPC, SDK, request/response logging, parsing, mapping, or provider failures
+- [exception-communication.md](references/exception-communication.md): changed failure messages, failure logs, `catch`, `finally`, or error mapping
+- [remote-calls.md](references/remote-calls.md): HTTP, Feign, RPC, external SDK, or their logging, response parsing, error mapping, and provider failures
 - [contracts-and-lifecycles.md](references/contracts-and-lifecycles.md): transactions, cross-store behavior, async work, retries, caches, compensation, locks, resources, or non-obvious failure policy
 - [control-flow.md](references/control-flow.md): ternaries, branches, repeated decisions, structural literals, loops, braces, or long expressions
 - [evidence-and-verification.md](references/evidence-and-verification.md): existing behavior or data semantics, related fields, legacy logic, evidence conflicts, or tools that rewrite files
@@ -40,7 +40,7 @@ Read only the matching references:
 
 These are hard quality gates for changed behavior:
 
-- preserve caller-visible null, empty, absent, default, state, and exception semantics
+- preserve caller-visible semantics the task does not authorize changing; implement approved behavior changes and update affected callers and tests rather than treating old code as the specification
 - make names and call sites reveal the subject, action, result, parameter meaning, and meaningful side effects; expose collection key/cardinality and duplicate policy
 - trace related values through validation, mapping, serialization, persistence, remote calls, caches, logs, errors, and outputs
 - assign clear owners and safe ordering for validation, state transitions, persistence, cleanup, delayed work, retries, compensation, and resources

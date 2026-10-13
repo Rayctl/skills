@@ -1038,6 +1038,45 @@ class ControlFlowRuleTests(CheckerTestCase):
             self.assertNotIn("if (second) return;", result.stdout)
 
 
+    def test_each_control_kind_selects_only_its_corresponding_body(self):
+        checker = load_checker()
+        for header, trailing in (
+            ("if (enabled)", ""),
+            ("if (enabled) {} else", ""),
+            ("for (String item : items)", ""),
+            ("while (enabled)", ""),
+            ("do", "while (enabled);\n"),
+            ("if (enabled) for (String item : items)", ""),
+        ):
+            with self.subTest(header=header):
+                source = f"class Flow {{\nvoid run() {{\n{header}\nact(\nvalue);\n{trailing}next();\n}}\n}}\n"
+                findings = [item for item in checker.analyze_source(source) if item.rule == "STYLE-BRACE-001"]
+                self.assertTrue(findings)
+                for finding in findings:
+                    self.assertTrue(checker.finding_intersects(finding, [checker.Scope("lines", 5, 5)]))
+                    next_line = source.splitlines().index("next();") + 1
+                    self.assertFalse(checker.finding_intersects(finding, [checker.Scope("lines", next_line, next_line)]))
+
+    def test_multiline_control_scope_includes_body_but_not_next_statement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = self.write(temporary, "Flow.java", """
+                class Flow {
+                    void run(boolean enabled) {
+                        if (
+                            enabled)
+                            consume(
+                                enabled);
+                        next();
+                    }
+                }
+            """)
+            for selected, expected in ((4, 1), (5, 1), (6, 1), (7, 0)):
+                with self.subTest(selected=selected):
+                    result = self.run_checker("--line-range", f"{path}:{selected}-{selected}")
+                    self.assertEqual(expected, result.returncode, result.stdout + result.stderr)
+                    self.assertEqual(expected, result.stdout.count("STYLE-BRACE-001"))
+
+
 class LineRangeTests(CheckerTestCase):
     def test_line_range_only_reports_intersecting_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1200,6 +1239,60 @@ class ChangedScopeTests(CheckerTestCase):
             self.assertEqual(1, result.returncode, result)
             self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
             self.assertIn("if (enabled) return;", result.stdout)
+
+    def test_deleted_separate_braces_are_detected_in_all_changed_modes(self):
+        for mode in ("unstaged", "staged", "base"):
+            with self.subTest(mode=mode):
+                temporary, repo = self.make_repo()
+                with temporary:
+                    original = (
+                        "class Flow {\n    void run(boolean enabled) {\n"
+                        "        if (\n            enabled)\n        {\n"
+                        "            consume(enabled);\n        }\n"
+                        "        if (enabled) historical();\n    }\n}\n"
+                    )
+                    path = self.write(repo, "Flow.java", original)
+                    self.commit_all(repo, "base")
+                    base = self.git(repo, "rev-parse", "HEAD")
+                    path.write_text(original.replace("        {\n", "").replace("        }\n", ""), encoding="utf-8")
+                    arguments = ["--changed", "--repo", repo]
+                    if mode == "staged":
+                        self.git(repo, "add", "Flow.java")
+                    elif mode == "base":
+                        self.commit_all(repo, "delete braces")
+                        arguments += ["--base", base]
+                    result = self.run_checker(*arguments)
+                    self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+                    self.assertEqual(1, result.stdout.count("STYLE-BRACE-001"), result.stdout)
+                    self.assertNotIn("historical();", result.stdout)
+
+    def test_binary_git_attribute_does_not_hide_java_text_changes(self):
+        temporary, repo = self.make_repo()
+        with temporary:
+            self.write(repo, ".gitattributes", "*.java -diff\n")
+            path = self.write(repo, "Text.java", "class Text {\n    // Historical.\n}\n")
+            self.commit_all(repo, "base")
+            base = self.git(repo, "rev-parse", "HEAD")
+            path.write_text("class Text {\n    // Historical.\n    // New violation.\n}\n", encoding="utf-8")
+            for mode in ("unstaged", "staged", "base"):
+                with self.subTest(mode=mode):
+                    arguments = ["--changed", "--repo", repo]
+                    if mode == "staged":
+                        self.git(repo, "add", "Text.java")
+                    elif mode == "base":
+                        self.commit_all(repo, "change")
+                        arguments += ["--base", base]
+                    result = self.run_checker(*arguments)
+                    self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+                    self.assertEqual(1, result.stdout.count("STYLE-COMMENT-001"), result.stdout)
+                    self.assertIn("New violation.", result.stdout)
+                    self.assertNotIn("Historical.", result.stdout)
+
+    def test_unavailable_text_diff_is_error_instead_of_clean(self):
+        checker = load_checker()
+        with patch.object(checker, "run_git", return_value="Binary files a/Text.java and b/Text.java differ\n"):
+            with self.assertRaises(checker.InputError):
+                checker.changed_hunk_ranges(Path.cwd(), "HEAD", [Path("Text.java")])
 
     def test_changed_mode_detects_staged_unstaged_and_untracked_java(self):
         temporary, repo = self.make_repo()

@@ -63,7 +63,7 @@ schemaCandidates -> activeSchemaList   // query already returned active schemas
 for (Schema schemaCandidate : activeSchemaList) -> for (Schema schema : activeSchemaList)
 ```
 
-Application-internal collection variables include their concrete container suffix so later uses remain understandable without returning to the declaration:
+As the default preference, application-internal collection variables include their concrete container suffix where it improves later reading without returning to the declaration. Explicit user rules and formal project conventions take precedence; do not report an overridden preference as a violation:
 
 - `List<T>` uses `...List`, such as `requestedAppList`
 - `Set<T>` uses `...Set`, such as `requestedAppCodeSet`

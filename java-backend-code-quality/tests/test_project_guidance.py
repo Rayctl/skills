@@ -59,6 +59,67 @@ verified_commits:
         self.assertEqual(1, code)
         self.assertEqual({"status": "INVALID", "reason": "unknown_guidance_section"}, payload)
 
+    def test_unknown_or_missing_version_does_not_parse_foreign_mappings(self):
+        for version, reason in (
+            ("schema_version: 9\n", "unsupported_schema_version"),
+            ("", "missing_schema_version"),
+        ):
+            content = f"---\n{version}future_metadata:\n  nested:\n    commit: {SHA}\n---\n"
+            code, payload = self.run_validator(content)
+            self.assertEqual(0, code)
+            self.assertEqual({"status": "UNVERIFIED", "reason": reason}, payload)
+
+    def test_body_examples_cannot_supply_or_override_metadata(self):
+        example = f"# Project Guidance\n```yaml\nverified_commits:\n  Logging: {SHA}\n```\n"
+        for prefix, status in (
+            ("---\nschema_version: 2\n---\n", "UNVERIFIED"),
+            (f"---\nschema_version: 2\nverified_commits:\n  Logging: {SHA}\n---\n", "VALID"),
+            ("---\nschema_version: 2\nverified_commits:\n  Logging: invalid\n---\n", "UNVERIFIED"),
+        ):
+            with self.subTest(prefix=prefix):
+                code, payload = self.run_validator(prefix + example)
+                self.assertEqual(0, code)
+                self.assertEqual(status, payload["status"])
+
+    def test_duplicate_metadata_and_section_commits_are_invalid(self):
+        for content, reason in (
+            (f"schema_version: 1\nschema_version: 2\nverified_commit: {SHA}", "duplicate_metadata_key"),
+            (f"schema_version: 2\nverified_commits:\n  Logging: {SHA}\n  Logging: {SHA}", "duplicate_section_commit"),
+            (f"schema_version: 2\nverified_commits:\n  Logging: {SHA}\nverified_commits:\n  Exception Handling: {SHA}", "duplicate_metadata_key"),
+        ):
+            with self.subTest(reason=reason, content=content):
+                code, payload = self.run_validator(f"---\n{content}\n---\n")
+                self.assertEqual(1, code)
+                self.assertEqual({"status": "INVALID", "reason": reason}, payload)
+
+    def test_malformed_mapping_cannot_be_reported_valid(self):
+        for mapping in (
+            f"verified_commits: {{Logging: {SHA}}}",
+            f"verified_commits:\n Logging: {SHA}",
+            f"verified_commits:\n  Logging:\n    nested: {SHA}",
+            f"verified_commits:\n\tLogging: {SHA}",
+            f"verified_commits:\n  Logging: \"{SHA}",
+        ):
+            with self.subTest(mapping=mapping):
+                code, payload = self.run_validator(f"---\nschema_version: 2\n{mapping}\n---\n")
+                self.assertEqual(1, code)
+                self.assertEqual("INVALID", payload["status"])
+
+    def test_angle_brackets_are_not_stripped_from_commit_placeholders(self):
+        code, payload = self.run_validator(
+            f"---\nschema_version: 2\nverified_commits:\n  Logging: <{SHA}>\n---\n"
+        )
+        self.assertEqual(0, code)
+        self.assertEqual("UNVERIFIED", payload["status"])
+
+    def test_quoted_values_and_comments_are_valid(self):
+        code, payload = self.run_validator(
+            f"---\n# reference only\nschema_version: '2'\nverified_commits: # per-section\n"
+            f"  'Logging': \"{SHA}\"\n  Exception Handling: {SHA} # checked\n---\n"
+        )
+        self.assertEqual(0, code)
+        self.assertEqual({"status": "VALID"}, payload)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -754,7 +754,7 @@ def control_body_start(masked, keyword_start, keyword, paren_pairs, limit):
 
 
 def statement_end(masked, start, paren_pairs, brace_pairs, depths, limit):
-    """Find the end of one statement for do-while boundary detection."""
+    """Find one statement's end for control-body scope and do-while detection."""
     start = skip_space(masked, start, limit)
     if start >= limit:
         return None
@@ -845,13 +845,17 @@ def check_control_braces(masked, starts, source_lines, paren_pairs, brace_pairs,
             continue
 
         line = line_number(starts, match.start())
+        body_end = statement_end(
+            masked, body_start, paren_pairs, brace_pairs, depths, len(masked)
+        )
+        end_line = line_number(starts, max(body_start, (body_end or body_start + 1) - 1))
         findings.append(Finding(
             line,
             "STYLE-BRACE-001",
             "%s statement requires braces around its body" % keyword,
             source_line(source_lines, line),
             line,
-            line,
+            end_line,
         ))
     return findings
 
@@ -1100,6 +1104,7 @@ def changed_hunk_ranges(repo, baseline, relative_paths):
             "--no-color",
             "--no-ext-diff",
             "--no-textconv",
+            "--text",
             "--find-renames",
             baseline,
             "--",
@@ -1109,6 +1114,8 @@ def changed_hunk_ranges(repo, baseline, relative_paths):
     )
     scopes = []
     for line in diff.splitlines():
+        if line.startswith(("Binary files ", "GIT binary patch")):
+            raise InputError("cannot establish text change ranges for %s" % ", ".join(pathspecs))
         match = DIFF_HUNK_PATTERN.match(line)
         if match is None:
             continue
