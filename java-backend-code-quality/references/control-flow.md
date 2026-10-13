@@ -58,6 +58,25 @@ For example, a named physical constant or externally governed timeout limit has 
 
 Use the repository's established style and the clearest form for the actual operation. A short pure transformation or collection can use a stream; validation with distinct failure reasons, ordering-sensitive updates, early exit, or side effects may read better as a loop. Do not convert a loop to a stream just to shorten it, or extract trivial methods merely to make a pipeline look fluent. Verify encounter order, duplicate handling, evaluation count, null behavior, and exceptions when changing form. Never introduce parallel execution solely as a stylistic change
 
+## Separate Data Acquisition From Traversal
+
+For an enhanced `for` whose source performs a database query, remote call, or non-trivial data preparation, first assign the result to a meaningfully named local variable, then traverse it. This default preference makes the acquisition boundary, result state, and traversal visible independently and supports inspecting the result before processing. Use the actual return type and its established collection suffix; do not claim a state such as `validated` or `latest` that the acquisition has not established
+
+```java
+List<ApiSchemaDocument> activeSchemaList =
+        apiSchemaRepository.queryActiveByApiCodes(apiCodeCollection);
+
+for (ApiSchemaDocument schema : activeSchemaList) {
+    // Apply the existing processing logic
+}
+```
+
+The enhanced-for source expression is evaluated once before traversal, not once per element. Splitting this expression is a readability choice, not a fix for repeated queries. Existing collection variables and simple in-memory accessors such as `order.getItems()` may remain directly in the loop. Judge actual behavior rather than method-name prefixes: a getter that performs I/O still needs an acquisition boundary. Do not create a helper, copy a collection, or add an intent comment solely to perform this split; hidden contracts retain their normal comment requirements
+
+Keep the assignment at the original execution point and inside the same guard, transaction, lock, `try`, and resource scope. Preserve evaluation count, order, null and exception behavior, and lazy consumption. A named cursor, stream, or lazy iterable is not a materialized snapshot: do not collect it into a List, pre-read all pages, or move it out of its owned resource scope merely for this preference. Calls in `while` or classic-for conditions may intentionally fetch another page or observe changing state on each iteration; never hoist them as though they were an enhanced-for source
+
+Only added or changed task-owned traversal is in scope. A preference-only issue is `P3`, subordinate to formal repository rules; actual ordering, resource, or failure risks follow impact-based severity. Review the acquisition boundary during final control-flow readback even when the style checker passes
+
 ## Final Control-Flow Review
 
 After editing, trace each changed path from condition to outcome. Check scattered repeated decisions, meaningful structural literals, and dense ternaries as well as braces and wrapping. Reapply the ternary rule to expressions combining null handling with allocation or calls; do not overlook them merely because the style checker passes.

@@ -304,6 +304,19 @@ if (user != null) {
 
 所有 `if`、`else`、`for`、`while` 和 `do while` 都使用大括号，即使分支只有一条语句。三元表达式是否影响业务理解由 Skill 结合语义判断，检查器只自动检查缺少大括号。
 
+增强 `for` 的数据来源是数据库查询、远程调用或非平凡的数据准备时，默认先取得结果，再遍历：
+
+```java
+List<ApiSchemaDocument> activeSchemaList =
+        apiSchemaRepository.queryActiveByApiCodes(apiCodeCollection);
+
+for (ApiSchemaDocument schema : activeSchemaList) {
+    // 原有处理逻辑
+}
+```
+
+这让查询结果可以单独阅读和调试；增强 `for` 中的查询本来就只执行一次，不是每轮查询。已有集合和简单的内存 getter（如 `order.getItems()`）可以直接遍历，不为拆行新增包装方法或机械注释。保留原来的执行位置、空值和异常行为；游标、Stream 和惰性结果不能强行转成 List，也不能移出原有关闭范围。`while` 中每轮取下一页等调用仍按原频次执行。该项是默认可读性偏好，单纯违反最高为 `P3`，由 Skill 语义检查，不增加 Python 规则。
+
 换行先遵循项目 formatter 或明确的最大行宽。没有项目约定时，能在当前 IDE 常见视口内完整展示且结构清楚的短调用保持一行；超过行宽、参数边界不清或一行包含多个独立动作时再换行。不要因为变量名或方法名较长就机械拆开，也不要为了避免换行而保留难以扫描的长表达式。
 
 ## 安装

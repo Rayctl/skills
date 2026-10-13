@@ -43,6 +43,8 @@ Comment wording, pronoun clarity, useful information, and evidence for claimed r
 
 Method cohesion, cohesive parameter values, changing snapshots, loop-versus-stream choice, resource ownership, suppressed failures, timeout uncertainty, retry amplification, and idempotency require semantic review. The checker does not enforce method-size or parameter-count limits, extract every literal, require streams, close every `AutoCloseable`, or prescribe retry counts. Source-informed recommendations remain subordinate to current contracts and explicit project rules.
 
+Separating a database query, remote call, or non-trivial preparation from an enhanced-for source is a semantic readability preference. The checker does not classify methods by name, flag every source call, or prove lazy evaluation and resource-scope equivalence. It adds no automatic rule for this preference; review must distinguish simple accessors and preserve repeated conditions in other loop forms.
+
 ## Exit Codes
 
 - `0`: no violations for the selected scope

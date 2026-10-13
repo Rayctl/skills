@@ -1291,6 +1291,36 @@
       "fixture": "The SDK makes up to three attempts for an idempotent request, each with its configured timeout. A proposed service loop also makes three attempts and waits between them. The caller's total deadline is two seconds; the supplied request timeout does not cover DNS or TLS setup. A separate requirement only adds response logging to another call.",
       "expected_decisions": ["Identify multiplied attempts across SDK and service and establish one responsible retry budget", "Include connection/setup coverage, waits and all attempts in the total deadline", "Use evidenced client/provider policies rather than universal timeout or jitter numbers", "Do not add retry behavior or load unrelated lifecycle details for the logging-only requirement"],
       "disallowed_decisions": ["Assume one request timeout bounds the entire operation", "Add service retries without inspecting the SDK", "Treat every business rejection as retryable", "Require all references for ordinary remote logging"]
+    },
+    {
+      "id": "enhanced-for-query-result-local",
+      "title": "Separate a query result from enhanced-for traversal",
+      "mode": "implementation",
+      "triggers": ["control-flow", "naming"],
+      "prompt": "让这段查询和遍历更容易读，保持行为不变",
+      "fixture": "Inside an existing guarded try block: for (ApiSchemaDocument schema : apiSchemaRepository.queryActiveByApiCodes(apiCodeCollection)) { process(schema); }. The repository returns an eager List<ApiSchemaDocument> of active records. No rule requires the compact original form; process and the error handling remain unchanged.",
+      "expected_decisions": ["Assign the query result to activeSchemaList inside the same guarded try block immediately before traversal", "Preserve one query, original null and exception behavior, and processing order", "Explain that the enhanced-for source already evaluates once, so the change improves readability rather than query frequency", "Avoid a new helper or a redundant comment solely for this split"],
+      "disallowed_decisions": ["Claim that the original query runs per element", "Move the query before its guard or outside its error handler", "Silently convert null results into an empty list", "Add a keyword-based Python rule"]
+    },
+    {
+      "id": "enhanced-for-simple-accessor-direct",
+      "title": "A simple collection accessor may remain directly in the loop",
+      "mode": "review",
+      "triggers": ["control-flow"],
+      "prompt": "这几种循环是否都要先提取变量？",
+      "fixture": "for (Item item : order.getItems()) traverses an already-owned in-memory List via a simple accessor; another loop uses existing activeSchemaList. By contrast, accountService.getAccounts() performs a remote request despite its get prefix. Only these changed loop sources are under review.",
+      "expected_decisions": ["Allow the simple accessor and existing collection variable without redundant temporaries", "Separate the remote acquisition based on actual behavior rather than its getter-like name", "Keep review scoped to changed traversal"],
+      "disallowed_decisions": ["Require a local variable for every method call", "Exempt the remote getter solely because its name starts with get", "Expand review into all historical loops"]
+    },
+    {
+      "id": "loop-source-preserves-lazy-resource-scope",
+      "title": "Naming a traversal source must not change lazy or repeated acquisition",
+      "mode": "review",
+      "triggers": ["control-flow", "contracts-and-lifecycles"],
+      "prompt": "为游标循环和分页循环整理获取结果的写法",
+      "fixture": "A lazy Iterable<Record> is obtained inside the try-with-resources scope of an owned Session and fetches records only during iteration. A proposed refactor eagerly collects it to a List before entering that scope. Separately, while ((page = client.fetchNextPage()) != null) intentionally acquires another page each iteration; a proposed hoist fetches just once before the while.",
+      "expected_decisions": ["Keep lazy acquisition and iteration within the owning session scope without forced materialization", "Do not describe a named lazy iterable as a completed snapshot", "Preserve per-iteration page acquisition in the while rather than applying enhanced-for evaluation rules", "Reject changes to resource lifetime or fetch timing despite a readability goal"],
+      "disallowed_decisions": ["Collect every query result into List for uniform formatting", "Move the lazy source outside its resource owner", "Hoist repeated page fetching out of the while", "Claim that every loop source is evaluated once"]
     }
   ]
 }
