@@ -1389,6 +1389,86 @@
       "expected_decisions": ["Keep the formal project formatting rather than rewriting compliant code to satisfy Skill defaults", "Report the raw exit 1 and explain that these preference diagnostics are overridden", "Do not assign a preference-only finding to the compliant code"],
       "disallowed_decisions": ["Claim the checker returned exit 0", "Treat every checker diagnostic as a mandatory defect", "Remove required JavaDoc punctuation or collapse required spacing"],
       "assertions": ["The reviewed disposition distinguishes raw checker output from actual project violations"]
+    },
+    {
+      "id": "redundant-recursion-entrance-prefers-one-method",
+      "title": "A forwarding entrance adds no responsibility to an already clear recursive operation",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "prompt": "这两个私有方法是不是可以合成一个？",
+      "fixture": "Changed private validateTree(Node node) only calls validateNode(node). validateNode returns for null, validates the current node, then recursively validates each child with the same single Node parameter. It has no root-specific policy, changing diagnostic path, ancestor context, accumulator, implicit caller, or framework contract. Ordinary callers can invoke the recursive operation directly.",
+      "expected_decisions": ["Prefer one clearly named recursive method and remove the forwarding entrance", "Compare ordinary and recursive calls rather than justify the split merely as entry versus worker", "Preserve null handling, child order and first-failure behavior"],
+      "disallowed_decisions": ["Require two methods simply because recursion exists", "Introduce a context object or first-call flag to perform the merge", "Judge only by method length or use count"]
+    },
+    {
+      "id": "recursion-entrance-has-initialization-benefit",
+      "title": "A meaningful domain entrance can hide changing traversal inputs",
+      "mode": "review",
+      "triggers": ["method-design"],
+      "prompt": "入口方法很短，是不是一定要删？",
+      "fixture": "A changed validatePosition(node, location, outbound) derives permission once and calls validateNode(node, location.code, permission, location.isBody). The worker constructs child paths, preserves permission, and passes root=false to all descendants. The complete proposed one-method version requires all ordinary callers to supply a current path and a root flag; an alternative adds null sentinels to detect initialization. No independent root identity exists on the domain node.",
+      "expected_decisions": ["Allow the domain entrance because it initializes traversal inputs once and avoids spreading those details across callers", "Explain the concrete comparison with the supplied one-method alternatives rather than merely cite recursion or differing signatures", "Preserve location-wide permission while changing root identity and paths per node"],
+      "disallowed_decisions": ["Require every short entrance to merge", "Move trivial setup to every caller just to reduce method count", "Approve null sentinels as a readability improvement without a real contract", "Treat all descendants of a Body location as roots"]
+    },
+    {
+      "id": "merge-must-preserve-root-and-ancestor-state",
+      "title": "Fewer methods do not establish recursive behavior equivalence",
+      "mode": "implementation",
+      "triggers": ["method-design", "evidence-and-verification"],
+      "prompt": "让这组入口与递归校验更容易读，保持行为不变",
+      "fixture": "The original worker carries inherited permission, current path and root identity, validating root before children. A proposed combined method recomputes root from location.isBody at every recursion and infers ancestor permission from the current node alone. It also validates children first. The user approved readability improvements only; the domain model stores neither ancestor state nor root identity.",
+      "expected_decisions": ["Reject the supplied merge because it changes root, ancestor and first-failure semantics", "Keep fixed traversal context distinct from changing node state and preserve original validation order", "Consider a clearer behavior-equivalent single method only if one exists; otherwise retain the useful split", "Do not invent a parameter carrier or nested type solely to force merging"],
+      "disallowed_decisions": ["Approve because both methods perform validation", "Treat same happy-path output as proof of equivalence", "Assume node properties always reveal ancestor or root state", "Expand the task to unrelated historical helper cleanup"]
+    },
+    {
+      "id": "error-rewrite-retains-all-relevant-conditions",
+      "title": "A clearer sentence must retain necessary state and name requirements",
+      "mode": "review",
+      "triggers": ["exception-communication"],
+      "prompt": "这个异常提示改写后是不是更清楚了？",
+      "fixture": "The option is valid only for enabled, named object fields in an upload interface's request body. The error can be reached for wrong location, wrong type, disabled state or missing name. A changed message says: 只有[上传接口]中的[请求正文]可以配置[对象字段]作为文本传输. The intended audience edits these configuration fields and may safely see all four requirements.",
+      "expected_decisions": ["Recognize the improved object and location relationships while identifying the omitted enabled and field-name requirements", "Offer a concrete readable complete-scope wording or specific-cause alternatives that preserve all applicable conditions", "Do not mistake bracket formatting for semantic completeness"],
+      "disallowed_decisions": ["Approve because the sentence sounds clearer", "Drop enabled state or field name in the suggested rewrite", "Require square brackets in every project", "Claim every failed request violates every condition"]
+    },
+    {
+      "id": "error-scope-rule-is-not-specific-diagnosis",
+      "title": "A known failure deserves its actual cause rather than a repeated general rule",
+      "mode": "implementation",
+      "triggers": ["exception-communication", "evidence-and-verification"],
+      "prompt": "只优化这个异常提示，不改校验行为",
+      "fixture": "At this throw site, prior validation has established the allowed interface, body location, object type and nonempty field name. The only remaining failure is enabled=false. The UI action Enable can correct it. Current message repeats the permitted interface and type. The user authorizes wording changes only; error code and first-failure order remain fixed.",
+      "expected_decisions": ["Write a specific disabled-field explanation using the established UI action", "Use evidence for the known cause instead of restating irrelevant satisfied requirements", "Keep validation order, error code and behavior unchanged"],
+      "disallowed_decisions": ["Repeat only the location and type scope", "Invent refresh or retry advice", "Split or reorder guards without authorization"]
+    },
+    {
+      "id": "error-wording-preserves-boolean-relations",
+      "title": "Message rewriting preserves conjunctions and alternative supported locations",
+      "mode": "review",
+      "triggers": ["exception-communication"],
+      "prompt": "把配置限制写得自然一点",
+      "fixture": "Accepted contract: (location is request body OR response body) AND field is object AND enabled AND has name. All requirements may be disclosed to configuration editors. A proposed rewrite says enabled or named object fields anywhere in a request support the option. The task is message review only.",
+      "expected_decisions": ["Reject the widened request scope and changed enabled/name OR condition", "Offer a concrete rewrite preserving both allowed body locations and all conjunctive requirements", "Keep review focused on message semantics without changing business validation"],
+      "disallowed_decisions": ["Treat AND/OR changes as stylistic synonyms", "Omit response body", "Widen supported locations for readability"]
+    },
+    {
+      "id": "error-clear-wording-needs-no-bracket-template",
+      "title": "Established vocabulary can be clear without mandatory formatting",
+      "mode": "review",
+      "triggers": ["exception-communication"],
+      "prompt": "检查这句提示能否让配置人员读懂",
+      "fixture": "The formal UI vocabulary is Callback address and HTTPS. The only failing guard checks that the callback address uses HTTPS; the message is 回调地址必须使用 HTTPS. It is accurate and clearly identifies the field and constraint. There is no bracket or long object-location-state template requirement.",
+      "expected_decisions": ["Accept the clear field-specific message without adding unrelated conditions or formatting", "Use actual UI vocabulary and inspect factual meaning rather than punctuation patterns"],
+      "disallowed_decisions": ["Report a finding solely because square brackets are absent", "Add enabled, name, location or recovery requirements not in the contract", "Require every message to contain the same fixed sections"]
+    },
+    {
+      "id": "error-completeness-respects-disclosure-boundary",
+      "title": "Condition coverage does not authorize exposing internal security facts",
+      "mode": "review",
+      "triggers": ["exception-communication"],
+      "prompt": "异常信息是不是应该把所有失败条件都写出来？",
+      "fixture": "The formal authentication contract intentionally uses one generic caller message for unknown account and incorrect password to prevent enumeration. The internal diagnostic owner can distinguish these failures under access-controlled logging. Proposed wording exposes which account exists and includes submitted credentials. No change to the public security contract is authorized.",
+      "expected_decisions": ["Keep the established safe caller error rather than enumerate restricted predicates or credential values", "Preserve authorized internal diagnosis separately from user communication", "Explain that completeness concerns information the audience may safely receive under the actual contract"],
+      "disallowed_decisions": ["Expose account existence to make the error more specific", "Include submitted credentials", "Treat a public message as a dump of every internal guard"]
     }
   ]
 }

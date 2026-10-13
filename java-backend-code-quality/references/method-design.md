@@ -80,6 +80,16 @@ Use deferred functions only when a lock, retry, transaction, cache, fallback, or
 
 Do not hide meaningful I/O, mutation, retry, fallback, compensation, or cleanup behind a method that appears to be a pure calculation or predicate. Method names and boundaries must expose caller-relevant effects.
 
+## Initialization Entrances And Recursive Workers
+
+When an application-defined entry method only computes initial arguments and calls another method that performs the same operation, compare the complete two-method path with one method before retaining the split. This applies to recursive workers as well as non-recursive preparation-and-forwarding pairs. The labels "entry", "position", "node", or "recursive" do not establish separate responsibilities. Prefer one method when the caller and body remain clear, no independent contract is lost, and merging removes navigation without introducing awkward inputs or changing behavior.
+
+Trace which values belong to the entire traversal and which change for each node: location or permission may remain fixed, while the diagnostic path, ancestor state, and root identity evolve. A Body location does not make every descendant a Body root. Do not recompute root or ancestor state from location, node shape, field name, or path unless the current contract proves equivalence. Preserve validation order, null handling, traversal boundaries, evaluation count, shared-state lifetime, and the first reported failure.
+
+A separate entrance may remain when it gives ordinary callers meaningful domain inputs and initializes necessary traversal state once, while the worker needs a changing path, root flag, ancestor state, or accumulator. Judge that benefit against the actual combined alternative; different signatures or recursion alone are not sufficient. Do not force one method by adding nullable initialization parameters, magic sentinel values, first-call detection, unrelated modes, a flag bag, a new nested type, or duplicated recursion. Do not move trivial setup to every caller solely to remove a method. Conversely, do not add a wrapper merely to label a stage or hide already clear parameters.
+
+For example, `validatePosition(node, location, outbound)` may derive permission and pass the initial path and root identity to a recursive worker. Keep this split only when the changing recursion state makes the complete single-method form harder to understand. A wrapper that simply calls `validateTree(node)` without initialization or a separate contract should normally be removed. Record the concrete readability benefit when retaining a questionable split; do not treat either representation as a finding without an evidenced problem. Existing scope and impact-based severity still apply.
+
 ## Make Parameters Understandable At Calls
 
 Read the changed call without entering the implementation. Adjacent boolean arguments, especially literal sequences such as `validateNode(node, false, true, false)`, require review because positional values can hide different responsibilities or invite swaps. Judge their actual meaning, not a fixed flag count. A clearly named dynamic boolean, an obvious single switch such as `setEnabled(true)`, or a framework or third-party signature can remain; do not introduce wrappers merely to remove booleans.

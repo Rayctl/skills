@@ -42,6 +42,26 @@ Lead caller messages with the business subject and action. Include a field name,
 
 Before changing an established message or splitting an error, inspect error-code compatibility, response contracts, client parsing, localization, and tests. Improve the message without silently breaking a public contract.
 
+## Write And Recheck Understandable Messages
+
+Before drafting or changing a caller-visible message, identify its audience and map the conditions that reach this failure: the operation or field, its location or owner, allowed scope or type, required state, and any other condition needed to understand or correct the failure. Include only applicable information, using existing UI labels or API documentation terms rather than internal predicate or class names. Do not make this a fixed sentence template or enumerate unrelated validation rules.
+
+Make relationships explicit instead of stacking modifiers. A reader should distinguish which interface or operation owns the configuration, where the field belongs, and what property or state is required. Put one main rule first; use another clause or sentence when necessary. Brackets, quotation marks or other separators may help identify actual configuration labels when consistent with the project, but are optional and do not make an incomplete message clear.
+
+Distinguish a permitted-scope statement from a diagnosis of the current failure. "Only request-body object fields support this option" may describe a rule, but does not explain why an object field already in that location fails because it is disabled or unnamed. When the boundary can safely distinguish the cause, prefer a specific explanation. Apply the cause-and-recovery rules above when categories or effective corrections differ; changing prose alone does not authorize changing validation order, error codes, or failure precedence. If sharing a message is valid, its description must cover the relevant failure conditions without asserting that every condition failed. A wording-only task must not silently become a business-logic refactor.
+
+For example, assume an option is allowed only on request-body object fields that are enabled and have a name:
+
+```text
+Incomplete: 仅请求正文中的对象字段支持文本传输
+Complete scope: 仅支持将请求正文中已启用且有字段名的对象字段配置为文本传输
+Specific cause, when established: 当前字段未启用，启用后才能配置文本传输
+```
+
+After rewriting, compare each relevant condition with the final message and actual correction. Do not lose enabled state, field-name requirements, location, type, absence semantics, or other necessary qualifications just to shorten or smooth the wording. Preserve AND/OR meaning and supported scope; never replace a truthful multi-cause description with one guessed cause. Read the message without the implementation: can the intended audience locate the configuration and understand the unmet rule or next step? A safe field path can locate the issue, but cannot replace the explanation. Do not add unsupported recovery advice, expose restricted security checks or sensitive values, or require all internal predicates to appear in a public message.
+
+Grade omissions by impact: a lost condition or misleading diagnosis that causes incorrect configuration or recovery follows the existing `P2` alignment rule; merely dense but accurate wording is `P3`. Another equally clear phrasing is not a finding. These are semantic checks, not keyword, bracket-count, length, or fixed-format rules.
+
 ## Message Visibility At The Failure Site
 
 Keep a fixed caller-visible message literal at each throw or error-construction site when a private constant exists only to reuse that wording. The local branch should expose the guard, stable error category, exact message, retained cause, and recovery advice together so a reader can verify that they agree without following another symbol.
