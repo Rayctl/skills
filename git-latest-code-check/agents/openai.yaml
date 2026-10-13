@@ -1,7 +1,7 @@
 interface:
   display_name: "Git Latest Code Check"
   short_description: "Check development targets and verify before pushing"
-  default_prompt: "Use $git-latest-code-check for this confirmed Git worktree. Visibly report every check, update, and verify-push result; announce updates first. Always stop for missing or unknown targets and unfinished Git operations, even when dirty. Retain confirmed explicit targets and refreshed baselines. Permit dirty warnings only for freshness or temporary access issues in existing related work. Before every authorized push, verify the actual single existing push destination and stop on failure."
+  default_prompt: "Use $git-latest-code-check for this confirmed Git worktree, preserving user requirements, accepted business rules/design, task scope, progress, and authorization; report every result, announce updates first, revalidate only affected code after updating, and verify the actual existing destination before every authorized push."
 
 policy:
   allow_implicit_invocation: false
