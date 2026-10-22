@@ -1,0 +1,7 @@
+interface:
+  display_name: "PRD业务理解与协作"
+  short_description: "在PRD规划与实现中核验关键业务事实并解释改动依据"
+  default_prompt: "Use $prd-business-understanding to plan or implement this PRD-driven requirement."
+
+policy:
+  allow_implicit_invocation: true

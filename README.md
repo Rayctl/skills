@@ -8,6 +8,9 @@
 | --- | --- |
 | [git-latest-code-check](git-latest-code-check/README.md) | 检查代码基线；对干净且确认落后的分支尝试一次安全快进，推送前核对指定的已有远端分支 |
 | [java-backend-code-quality](java-backend-code-quality/README.md) | 在 Java 后端编码、修改和变更检查阶段应用契约、命名、注释、异常及复杂逻辑质量规则 |
+| [prd-business-understanding](prd-business-understanding/README.md) | 在 PRD 驱动的规划和实现中梳理旧行为、变化、兼容要求及关键决策依据 |
+
+PRD 驱动的规划或实现任务先使用 prd-business-understanding，让用户选择一起梳理业务或直接规划。把 PRD 当作需求意图和证据来源：关键的现状、接口、数据及方案假设要按对应来源核实，不能因文档写明或由 AI 生成就视为事实。两种模式都对照现状和 PRD 差异；需求澄清完成后，若需要设计，再进入现有 brainstorming 流程。编码时只解释关键业务行为变化，完成后映射场景、改动位置和验证结果。非 PRD 任务不触发该流程。
 
 ## 推荐流程
 
@@ -32,7 +35,7 @@ Java Skill 将规则分为两层：
 
 `java-backend-code-quality/evals/semantic-cases.json` 保存需要语义判断的代表性场景，`forward-evaluation-template.md` 用于在独立会话中记录有 Skill、无 Skill或旧版本的输出、断言证据、Token、耗时和实际加载的引用。JSON 结构通过不代表模型行为已经通过，仍需独立会话或人工评测
 
-两份 Skill 都可以分别运行 `quick_validate.py` 和各自测试。Java Skill 还提供只读检查器，用于检查当前任务 Java 变更的确定性格式问题
+各 Skill 可用 quick_validate.py 校验结构；Git 和 Java Skill 另有各自测试，Java Skill 还提供只读检查器，用于检查当前任务 Java 变更的确定性格式问题；PRD Skill 的语义评测目录可由专用脚本做结构校验，但模型行为仍需独立会话或人工评测
 
 ## 安装
 

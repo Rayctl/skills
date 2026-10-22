@@ -1,0 +1,210 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "ask-mode-before-prd-analysis",
+      "title": "A generic PRD request still needs an explicit mode choice",
+      "mode": "dialogue",
+      "triggers": ["entry-choice"],
+      "prompt": "请根据这份迭代 PRD 帮我看看需要怎么改。",
+      "fixture": "The user asks about an iteration PRD and has not chosen a collaboration mode in this task.",
+      "expected_decisions": [
+        "Ask whether the user wants 一起梳理业务 or 直接规划 before substantive analysis",
+        "Do not infer the mode from the fact that this is an iteration",
+        "Do not provide the final analysis or implementation plan before the user chooses"
+      ],
+      "disallowed_decisions": [
+        "Skip the mode choice because the requirement sounds familiar",
+        "Assume direct planning from a generic request to discuss how to change the system"
+      ]
+    },
+    {
+      "id": "collaborative-one-question-at-a-time",
+      "title": "Collaborative clarification waits between material questions",
+      "mode": "dialogue",
+      "triggers": ["collaborative-clarification", "evidence-boundaries", "compatibility"],
+      "prompt": "我选择一起梳理业务。先帮我理解这个改动。",
+      "fixture": "A tracking system already has online-time rules. The PRD adds return rules and a returning label for matching shipments, displays the label, and includes it in subscription pushes. Existing rules without a type remain online-time rules. The PRD says a later ordinary tracking event does not automatically clear an existing returning label; it leaves later OMS status and business actions for separate clarification.",
+      "expected_decisions": [
+        "Briefly distinguish existing online-time behavior from the new return classification and label flow",
+        "State that existing untyped rules remain online-time rules and later ordinary tracking does not automatically clear an existing returning label",
+        "Separate PRD statements from current-code facts and AI inference",
+        "Ask at most one unresolved question that could change business understanding or implementation",
+        "Wait for the answer before giving a final implementation plan"
+      ],
+      "disallowed_decisions": [
+        "Ask several questions in one turn",
+        "Assume returning automatically changes a later OMS state or triggers an unspecified action",
+        "Present a final plan before the user answers a material question"
+      ]
+    },
+    {
+      "id": "direct-plan-identifies-unresolved-business-action",
+      "title": "Direct planning distinguishes a specified label rule from open downstream behavior",
+      "mode": "direct-planning",
+      "triggers": ["evidence-boundaries", "compatibility"],
+      "prompt": "我选择直接规划。给我这个改动的实现方案。",
+      "fixture": "The PRD adds a returning label to an existing tracking-rule flow. Existing online-time rules keep their behavior, historical rules with no type remain online-time rules, and a later ordinary tracking event does not automatically clear an existing returning label. The PRD does not decide which later OMS status or business action should follow the label. Current tests show how a missing rule type is actually read.",
+      "expected_decisions": [
+        "Describe the observed old behavior, requested delta, and explicit compatibility requirements",
+        "Identify which claims come from the PRD and which come from code or tests",
+        "Preserve the explicit no-automatic-clear behavior as a PRD requirement",
+        "Keep the later OMS status and business action unresolved and confirm them before prescribing behavior"
+      ],
+      "disallowed_decisions": [
+        "Treat existing code as authority for the desired new behavior",
+        "Assume an empty label clears a previously persisted returning label",
+        "Hide assumptions about downstream OMS behavior inside the plan"
+      ]
+    },
+    {
+      "id": "wms-gray-rollout-preserves-oms-path",
+      "title": "A new TMS subscription path coexists with the legacy OMS path",
+      "mode": "direct-planning",
+      "triggers": ["compatibility", "evidence-boundaries"],
+      "prompt": "按 WMS 订阅轨迹中心物流数据的 PRD 直接规划。",
+      "fixture": "The PRD describes a warehouse gray switch, default off and initially enabled for one warehouse. A warehouse in the new path gets a TMS source marker and subscription task and reads first-party TMS tracking data. Warehouses outside the rollout remain unmarked and continue using OMS push, existing logistics-update rules, and existing online-time calculation.",
+      "expected_decisions": [
+        "Explain the gray switch as parallel routing behavior during rollout",
+        "Preserve the unmarked OMS behavior and its existing update and time-calculation rules",
+        "Do not apply the new TMS source path to every warehouse by default",
+        "Separate PRD facts from current-code facts when describing the route"
+      ],
+      "disallowed_decisions": [
+        "Replace the OMS path globally as soon as the TMS path exists",
+        "Assume all warehouses are switched at once",
+        "Present the existing code route as proof that the PRD intends the same route for marked warehouses"
+      ]
+    },
+    {
+      "id": "related-ups-prds-do-not-imply-inheritance",
+      "title": "Related carrier topics do not prove a shared requirement lineage",
+      "mode": "direct-planning",
+      "triggers": ["document-lineage", "evidence-boundaries"],
+      "prompt": "对比这两份 UPS 文档并规划当前需求。",
+      "fixture": "One PRD covers UPS4代理商SG接入, including carrier-specific service and integration behavior. A separate PRD covers unifying UPS carrier and service handling in new TMS, including a new UPS Ground service and account selection. The titles and carrier overlap, but neither the user nor document metadata establishes that one is a later version of the other.",
+      "expected_decisions": [
+        "Treat the documents as separate requirements unless the user or document metadata establishes their relationship",
+        "Compare relevant behavior and identify any conflict or dependency as a question",
+        "Do not silently import implementation decisions from one PRD into the other"
+      ],
+      "disallowed_decisions": [
+        "Assume the newer-sounding document supersedes the UPS4 integration document",
+        "Assume the documents are one requirement because they mention UPS"
+      ]
+    },
+    {
+      "id": "interface-contract-is-not-product-decision",
+      "title": "An interface specification does not settle business intent",
+      "mode": "direct-planning",
+      "triggers": ["evidence-boundaries", "contract-boundaries"],
+      "prompt": "参考轨迹中心接入文档规划这个业务改动。",
+      "fixture": "The material describes subscription and callback messages, field names, timestamp formats, and timezone fields. It is an interface contract. The accompanying business PRD does not specify what the receiving business should do after a returning label arrives.",
+      "expected_decisions": [
+        "Use the interface document to describe payload and time-field constraints",
+        "Keep the receiving business action unresolved unless the business PRD or user decides it",
+        "Ask one decision-sensitive question if that action changes behavior"
+      ],
+      "disallowed_decisions": [
+        "Treat the interface document as authorization to invent downstream business actions",
+        "Confuse protocol shape with product policy"
+      ]
+    },
+    {
+      "id": "prd-factual-claim-conflicts-with-contract",
+      "title": "Authoritative contract evidence resolves a false current-state claim",
+      "mode": "direct-planning",
+      "triggers": ["claim-classification", "evidence-conflict", "contract-boundaries"],
+      "prompt": "我选择直接规划。请按这份 PRD 给实现方案。",
+      "fixture": "A draft PRD states as a current-state fact that the tracking API's eventTime is UTC. The active published API contract and consumer contract test both define eventTime as local time with eventTimeZone. The PRD does not propose changing this contract. Choosing the wrong conversion shifts displayed event times.",
+      "expected_decisions": [
+        "Classify the UTC statement as a factual claim about the current contract, not as a requested behavior change",
+        "Use the active API contract and consumer contract test to establish the current local-time-plus-timezone contract",
+        "Flag the inaccurate PRD statement and explain the time-conversion impact",
+        "Proceed on the verified current contract without asking the user to resolve a factual claim that authoritative evidence already settles",
+        "Keep a deliberate future contract change separate and require explicit product intent before planning one"
+      ],
+      "disallowed_decisions": [
+        "Follow the PRD's UTC claim without checking the active contract",
+        "Treat existing code or tests as authority for what a new business requirement must do",
+        "Ask the user to choose between sources when the active contract and contract test already settle the current-state fact",
+        "Silently change the interface to UTC based on the inaccurate PRD statement"
+      ]
+    },
+    {
+      "id": "ai-authored-solution-needs-product-decision",
+      "title": "AI authorship neither validates nor invalidates a proposed behavior",
+      "mode": "direct-planning",
+      "triggers": ["source-provenance", "claim-classification", "evidence-conflict", "compatibility"],
+      "prompt": "我选择直接规划。这个 PRD 是 AI 整理的，尽快给我方案。",
+      "fixture": "An AI-drafted PRD says a returning label should clear when a later ordinary tracking event has no label. The active event contract defines an omitted label as no update, and current code/tests preserve the existing label on such an event. The PRD has no product-owner confirmation for this rule. Clearing a label changes downstream order recognition.",
+      "expected_decisions": [
+        "Do not reject the statement solely because an AI drafted the document",
+        "Do not treat the written statement as a confirmed business decision without checking its approval or provenance",
+        "Explain the contract/current-behavior conflict and the downstream impact",
+        "Ask whether clearing is an intended approved behavior change before planning that branch"
+      ],
+      "disallowed_decisions": [
+        "Assume the AI-generated statement is false without evaluating its content",
+        "Implement clearing solely because it appears in the PRD",
+        "Use current code/tests alone to rule out an explicitly confirmed business change"
+      ]
+    },
+    {
+      "id": "independent-proposals-clarified-one-at-a-time",
+      "title": "Independent draft proposals are confirmed separately",
+      "mode": "direct-planning",
+      "triggers": ["claim-classification", "evidence-conflict", "source-provenance"],
+      "prompt": "我选直接规划。PRD 提到超时后自动重试和后续事件缺省时清空原状态，先给我方案。",
+      "fixture": "A draft PRD has no product-owner confirmation. It proposes retrying a provider create-shipment call after timeout and clearing an existing status when a later event omits the optional status. The provider contract guarantees duplicate suppression only with an idempotency key, which the proposed flow lacks. The active event contract defines omitted status as no update, and current code preserves the existing status. The retry and clearing proposals are independent decisions with separate duplicate-shipment and downstream-order effects.",
+      "expected_decisions": [
+        "Distinguish the two proposals and verify each against the evidence appropriate to its claim",
+        "Explain the duplicate-side-effect and downstream-order risks",
+        "Ask one focused question about one independent decision at a time",
+        "Continue unaffected planning without silently adopting either proposal"
+      ],
+      "disallowed_decisions": [
+        "Bundle approval of retry and status clearing into one compound question",
+        "Recommend retry without resolving idempotency",
+        "Treat current code alone as authority to reject an explicitly accepted behavior change"
+      ]
+    },
+    {
+      "id": "copied-documents-are-not-independent-confirmation",
+      "title": "Copied AI-generated material does not count as corroboration",
+      "mode": "direct-planning",
+      "triggers": ["source-provenance", "claim-classification", "evidence-conflict", "contract-boundaries"],
+      "prompt": "我选择直接规划。两份材料都写了可以超时重试，请据此设计。",
+      "fixture": "A draft PRD and a slide deck both say a provider's create-shipment request can be retried after a timeout without duplicates. The slide deck was generated by copying the same AI-generated PRD paragraph. The current provider contract says duplicate suppression only applies when an idempotency key is supplied; the proposed flow has no key. A retry could create a duplicate shipment.",
+      "expected_decisions": [
+        "Recognize that the two documents repeat one source and are not independent confirmation",
+        "Check the claim against the provider contract and identify the missing idempotency key",
+        "Explain the duplicate-side-effect risk and ask one focused question or propose a conditional plan pending the decision"
+      ],
+      "disallowed_decisions": [
+        "Treat the repeated statement in two files as two independent confirmations",
+        "Recommend automatic retry without resolving idempotency",
+        "Claim that timeout proves the provider did not create the shipment"
+      ]
+    },
+    {
+      "id": "explain-business-changes-without-line-by-line-review",
+      "title": "Implementation updates connect scenarios to meaningful changes",
+      "mode": "implementation",
+      "triggers": ["implementation-explanation", "completion-mapping"],
+      "prompt": "已经确认业务方案，请开始实现。",
+      "fixture": "An implementation changes the warehouse-switch branch, keeps the existing OMS branch for unmarked warehouses, and adds TMS subscription-task persistence for marked warehouses. Routine mapping and assignment statements do not change business behavior.",
+      "expected_decisions": [
+        "At key behavior-changing points, connect the warehouse scenario to the new route and cite the agreed PRD or user decision",
+        "Explain that the unmarked OMS route remains for compatibility",
+        "Avoid line-by-line commentary on ordinary statements",
+        "Finish with a concise scenario-to-code-location and verification mapping"
+      ],
+      "disallowed_decisions": [
+        "Narrate every assignment and helper call",
+        "Create a new approval ceremony or ask the user to approve each code stage",
+        "Claim checks passed without reporting actual verification"
+      ]
+    }
+  ]
+}
