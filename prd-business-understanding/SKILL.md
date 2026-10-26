@@ -9,9 +9,17 @@ Use for planning or implementation tasks whose requirements are driven by a prod
 
 ## Choose A Working Mode
 
-At the start of a PRD-driven task, ask the user to choose **一起梳理业务** or **直接规划**, unless they have explicitly chosen one for this task already. Do not infer a choice from whether the PRD is new or familiar, whether the request sounds like an iteration, or a generic request to plan or implement.
+At the start of a PRD-driven task, use **一起梳理业务** or **直接规划**. If the user's wording already clearly says to discuss, align the business, or first understand the change, use **一起梳理业务**; if it clearly asks for an implementation plan, use **直接规划**. Ask the user to choose only when the intent is genuinely ambiguous. Do not infer a choice from whether the PRD is new or familiar, whether the request sounds like an iteration, or a generic request to plan or implement.
 
-Do not begin the substantive analysis or final plan until the mode is explicit.
+Do not begin a final plan until the mode is explicit. If the user asks a narrow question about current behavior before choosing a mode, verify and answer that fact without turning it into a plan.
+
+## Verify Before Designing
+
+Before asking a material business question or proposing a behavior change, inspect the relevant current code, tests, configuration, formal contracts, and existing entry points. Trace every path that can affect the decision, such as configuration and detail reads, direct calculation, package or SKU calculation, quote and comparison filtering, pre-action checks, success counting, retries, cancellation, batch handling, or timeout recovery when applicable. Do not ask the user to choose between sources when authoritative evidence already settles a current-state fact.
+
+For each material statement, keep four statuses distinct: verified current fact, accepted requirement, candidate solution, and unresolved decision. A code path can establish what happens now; it cannot approve what should happen next. A PRD can request a new outcome; it cannot prove its description of current behavior or turn a suggested implementation into a rule.
+
+Unless the user or an accepted requirement explicitly changes it, preserve existing business behavior and contracts. A new restriction, lock, atomic reservation, retry policy, API, persistence rule, or failure guarantee is an additional product or compatibility decision. Explain its reason, scope, and cost as an option and ask for confirmation before implementing it. Do not derive strict concurrency guarantees from a statement that a request should fail when its quota is insufficient.
 
 ## Treat PRDs As Evidence, Not Automatic Authority
 
@@ -42,11 +50,15 @@ When material sources conflict, compare their authority, recency, scope, and ind
 
 For material conclusions, briefly name the source, status (verified fact, accepted decision, proposal, or unresolved assumption), and implementation impact. A short paragraph is enough; do not require a separate report, confidence score, or approval checklist. Accepting an assumption authorizes a conditional choice; it does not prove an external guarantee exists.
 
+When a current implementation already has an endpoint, request shape, entity, service, log category, or test seam that can support the requirement, extend that structure first. Introduce a new interface, class, lock, or storage model only when the existing structure cannot express the accepted behavior; state the concrete reason and the compatibility impact. Do not let a cleaner organization silently become a new contract.
+
 ## Establish Business Context
 
 Read the PRD and relevant supporting material using the distinctions above. When it can affect a material decision, establish which version is in scope and whether the requirement is accepted, draft, or unconfirmed. Do not infer approval from polished formatting, diagrams, or repeated wording.
 
 For an iteration, identify the old behavior, the requested delta, and behavior that must remain compatible. Similar topics, names, carriers, or systems do not establish that two documents are versions of one requirement or that decisions from one document carry into another. Interface specifications define useful technical contract evidence, but do not by themselves decide product behavior.
+
+Before planning or editing, make a lightweight behavior matrix for the affected paths: scenario, current behavior and source, requested delta, compatibility rule, open decision, and verification. Include only paths relevant to the requirement, but do not infer coverage from one entry point when alternate calculation, comparison, batch, retry, or post-success paths exist. Freeze the verified counting unit and domain terms—for example, distinguish a business order, shipment, package, and successful purchase request—and use the same terms in the plan, code comments, test cases, and user explanation.
 
 When the user chooses **一起梳理业务**, briefly state the old behavior, this change, what remains unchanged, which claims are verified or still assumptions, and the material unknowns. Ask one question at a time, limited to an answer that could change business understanding or implementation. Wait for the answer before continuing, and do not present the final plan while a material decision remains open.
 

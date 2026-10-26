@@ -19,6 +19,137 @@
       ]
     },
     {
+      "id": "infer-collaboration-mode-from-clear-request",
+      "title": "A clear collaborative request does not need a redundant mode prompt",
+      "mode": "dialogue",
+      "triggers": ["entry-choice"],
+      "prompt": "来讨论一下这个需求，看看要怎么开发。",
+      "fixture": "The user clearly asks to discuss the requirement together. The PRD states that disabled warehouse limit rules do not count, but does not describe how the existing service-wide counter is affected. Current code shows service-limit validation and counting at separate points and uses a service code whose construction differs between calculation and successful-order counting.",
+      "expected_decisions": [
+        "Infer 一起梳理业务 from the clear request to discuss the requirement",
+        "Do not ask a redundant mode-choice question",
+        "Inspect current code paths and counter-key construction before asking how the existing counter behaves",
+        "Ask only about product behavior that current evidence cannot settle"
+      ],
+      "disallowed_decisions": [
+        "Ask the user to choose a mode already made clear by their wording",
+        "Recommend a rule for existing service-wide counting before inspecting its implementation",
+        "Treat an unresolved implementation observation as a product decision question"
+      ]
+    },
+    {
+      "id": "verify-facts-before-asking-about-them",
+      "title": "Resolve existing behavior from code before asking the user",
+      "mode": "dialogue",
+      "triggers": ["evidence-boundaries", "claim-classification", "path-coverage"],
+      "prompt": "还没配置仓库额度的订单会不会占用服务总额度？",
+      "fixture": "Current service-limit validation and increment logic apply independently of whether a warehouse-specific rule exists. Calculation uses a base carrier service code, while order checking and counting may select a product-service payment code. PRD adds a warehouse-specific limit but does not ask to change service-wide counting.",
+      "expected_decisions": [
+        "Inspect the existing validation and counting paths before responding",
+        "Explain which existing counter is consumed and when, based on code evidence",
+        "Call out the mismatch in counter identifiers if present and its practical effect",
+        "Avoid asking the user to decide a current implementation fact"
+      ],
+      "disallowed_decisions": [
+        "Ask whether the user wants unconfigured warehouses to count before checking current code",
+        "Assume calculation and order paths use the same counter key",
+        "Claim service-wide semantics are uniform when code evidence reveals a mismatch"
+      ]
+    },
+    {
+      "id": "do-not-invent-disabled-editing-policy",
+      "title": "Do not add a configuration rule inferred from runtime behavior",
+      "mode": "implementation",
+      "triggers": ["scope-preservation", "existing-contract", "evidence-boundaries"],
+      "prompt": "按 PRD 增加仓库额度编辑功能。",
+      "fixture": "PRD specifies the fields, daily threshold, activation switch, and eligibility checks, but says nothing about whether operators may edit or create a rule after the carrier authorization is disabled. Runtime checks skip inactive authorizations. The existing edit endpoint permits editing other configuration while inactive.",
+      "expected_decisions": [
+        "Preserve the existing edit behavior unless an accepted requirement changes it",
+        "Do not infer that an inactive authorization must block creating or editing its limit configuration",
+        "If this policy materially affects implementation, present it as an option and ask before implementing it"
+      ],
+      "disallowed_decisions": [
+        "Add a rule that inactive authorizations can only disable existing limits",
+        "Treat runtime eligibility as authority for edit permissions",
+        "Describe the invented edit restriction as necessary validation"
+      ]
+    },
+    {
+      "id": "separate-request-failure-from-strict-concurrency",
+      "title": "A whole-request failure requirement does not imply atomic quota reservation",
+      "mode": "direct-planning",
+      "triggers": ["concurrency-semantics", "scope-preservation", "evidence-boundaries"],
+      "prompt": "PRD 说额度不足时整笔请求失败，帮我规划限额改造。",
+      "fixture": "Existing flow checks a Redis counter before purchase and increments asynchronously after success. The PRD requires rejecting the request when the checked quota is insufficient but does not mention concurrent requests, reservation, locking, or strict non-overrun. Atomic reservation and failure release would change the existing counter lifecycle and create unknown-timeout handling requirements.",
+      "expected_decisions": [
+        "Interpret whole-request failure as the failure boundary for one request, not proof of a strict concurrency guarantee",
+        "Describe the existing check-then-increment behavior and its race window",
+        "Keep strict atomic reservation as an optional enhancement with its extra lifecycle and recovery cost",
+        "Preserve the existing counting lifecycle unless the user confirms the stronger guarantee"
+      ],
+      "disallowed_decisions": [
+        "Treat request-level all-or-nothing behavior as authorization to implement atomic reservation",
+        "Promise strict non-overrun while retaining check-then-increment",
+        "Add reservation release behavior without clarifying ambiguous purchase outcomes"
+      ]
+    },
+    {
+      "id": "extend-existing-interface-and-structure-first",
+      "title": "Prefer the established configuration contract for an incremental change",
+      "mode": "direct-planning",
+      "triggers": ["existing-contract", "scope-preservation"],
+      "prompt": "给仓库单量规则增加编辑和详情展示，按当前系统规划接口。",
+      "fixture": "The existing carrier-account save endpoint saves all service rows from sysCarrierGroupServiceEntityList, and the detail endpoint already returns that list. No accepted requirement calls for a separate configuration resource. Existing service code can own the rule persistence and runtime checks can be shared across several flow paths.",
+      "expected_decisions": [
+        "Inspect and prefer extending the existing save and detail contract and service structure",
+        "Describe how the new fields are added to the existing row payloads",
+        "Justify any proposed new endpoint or class with a concrete limitation in the current structure"
+      ],
+      "disallowed_decisions": [
+        "Create separate CRUD endpoints solely to organize the new feature",
+        "Add a new controller or service layer without explaining why the existing layer cannot express the behavior",
+        "Change the existing payload shape without preserving old clients or stating compatibility impact"
+      ]
+    },
+    {
+      "id": "cover-alternate-calculation-entry-points",
+      "title": "A main calculation path is not enough to establish feature coverage",
+      "mode": "direct-planning",
+      "triggers": ["path-coverage", "completion-mapping"],
+      "prompt": "在现有限流检查后加仓库额度校验，帮我整理要改的地方。",
+      "fixture": "The suggested insertion point is in a comparison calculation path. The repository also has direct single-package and SKU calculations that can return carrier quotes, a purchase-time recheck, and a success-only asynchronous increment. The user expects every existing quote that can lead to this purchase behavior to honor the warehouse limit.",
+      "expected_decisions": [
+        "Treat the suggested insertion point as a lead, not proof that all relevant paths are covered",
+        "Enumerate direct/package and SKU calculation, comparison candidates, purchase recheck, and successful increment as applicable",
+        "Map each relevant path to its source location or verification case",
+        "Do not claim full coverage after checking only the comparison path"
+      ],
+      "disallowed_decisions": [
+        "Assume one shared helper call covers every calculation entry point",
+        "Omit SKU or direct package calculation from the plan without evidence it cannot return a quote",
+        "Claim implementation is complete without path-specific verification"
+      ]
+    },
+    {
+      "id": "freeze-counting-unit-and-vocabulary-from-evidence",
+      "title": "Use code evidence to keep counting terminology stable",
+      "mode": "direct-planning",
+      "triggers": ["domain-terminology", "claim-classification", "path-coverage"],
+      "prompt": "现有单量是订单维度还是发货单维度？",
+      "fixture": "The successful purchase flow increments once per request after the purchase succeeds. One request can include multiple packages, and an upstream flow can either submit one request per shipment or merge multiple shipments into one request. The counter does not deduplicate by business order id.",
+      "expected_decisions": [
+        "Inspect the increment location and the request assembly paths before naming the counting unit",
+        "Describe the unit as one successful purchase request, not universally one business order or one shipment",
+        "Give examples distinguishing multiple packages in one request from multiple separate requests",
+        "Use that term consistently in subsequent planning and test wording"
+      ],
+      "disallowed_decisions": [
+        "Call the count order-level without evidence of business-order deduplication",
+        "Call the count shipment-level without checking merged multi-shipment requests",
+        "Change terminology between the plan and its examples"
+      ]
+    },
+    {
       "id": "collaborative-one-question-at-a-time",
       "title": "Collaborative clarification waits between material questions",
       "mode": "dialogue",

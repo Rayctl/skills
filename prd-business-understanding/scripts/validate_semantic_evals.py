@@ -26,6 +26,11 @@ KNOWN_TRIGGERS = {
     "contract-boundaries",
     "implementation-explanation",
     "completion-mapping",
+    "scope-preservation",
+    "existing-contract",
+    "path-coverage",
+    "concurrency-semantics",
+    "domain-terminology",
 }
 REQUIRED_CASE_FIELDS = {
     "id",

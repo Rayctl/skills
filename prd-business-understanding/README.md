@@ -2,9 +2,11 @@
 
 Use this skill for PRD-driven planning and implementation. It helps establish old behavior, requested changes, compatibility, and unresolved business decisions, then explains behavior-changing code in context.
 
-At the start of a task, ask the user to choose 一起梳理业务 or 直接规划 unless they have explicitly chosen one for that task. Both paths compare current behavior with the PRD. Collaborative clarification asks one material question per turn and waits for the answer. Direct planning labels evidence and assumptions and still confirms unresolved decisions that could change behavior or contracts.
+Use the user's wording to select the working mode: a clear request to discuss or align the requirement means 一起梳理业务; a clear request for an implementation plan means 直接规划. Ask only when the intent is genuinely ambiguous. Answer narrow questions about current behavior with evidence even before giving a plan.
 
-Treat the PRD as a source of requested product intent, not automatic proof that its claims about current facts or proposed solution are correct. Verify material claims against the appropriate source: current code and tests for existing behavior, current formal contracts for interface details, and an accepted user or product decision for unclear or conflicting desired behavior. AI authorship alone neither invalidates nor verifies a statement. When authoritative evidence settles a current-state fact, state the PRD discrepancy and use the verified fact. When sources leave a material business, contract, or failure decision unresolved, explain the impact and ask one focused question before proceeding with dependent decisions.
+Before proposing a material decision, inspect current code, tests and formal contracts, and trace the affected entry points. Separate verified current facts, accepted requirements, proposed solutions and unresolved decisions. Preserve existing behavior and contracts unless the user or an accepted requirement changes them. Do not add business restrictions, APIs, locks, retries or stronger failure guarantees just because they seem useful; explain the effect and confirm them first. Prefer existing interfaces and service structure unless they cannot express the accepted behavior.
+
+For the affected scenarios, map current behavior, requested change, compatibility, open decisions and verification. Keep important terms such as order, shipment, package and successful purchase request consistent with the observed counting unit. AI authorship alone neither invalidates nor verifies a PRD statement. When authoritative evidence settles a current-state fact, note the discrepancy and proceed from that evidence. Ask one focused question at a time only for material decisions evidence cannot settle, and continue unaffected work.
 
 During implementation, explain only business-significant changes. Finish with a short mapping from scenarios to changed locations and verification. The skill does not apply to unrelated work or replace existing brainstorming, planning, or code-quality skills.
 
@@ -22,6 +24,6 @@ The skill entrypoint is ~/.codex/skills/prd-business-understanding/SKILL.md.
 
 ## Semantic evaluation
 
-The evals/semantic-cases.json catalog covers mode selection, evidence provenance, factual-claim verification, conflicts, compatibility, related but independent PRDs, interface-document boundaries, and focused implementation explanations. Use a clean evaluation conversation and judge decisions by meaning, not fixed wording. See evals/README.md.
+The evals/semantic-cases.json catalog covers mode selection, evidence provenance, path coverage, contract reuse, scope preservation, concurrency boundaries, terminology and focused implementation explanations. Use a clean evaluation conversation and judge decisions by meaning, not fixed wording. See evals/README.md.
 
 The catalog validator checks structure only. Passing it or Skill Creator's quick_validate.py does not demonstrate model behavior; behavioral evaluation requires running the cases with a model and reviewing its responses.
