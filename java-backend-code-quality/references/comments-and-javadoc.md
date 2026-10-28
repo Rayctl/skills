@@ -34,6 +34,12 @@ Always inspect independent-source comparisons, filtering or reshaping, compatibi
 
 Treat adjacent calls as separate stages when responsibility changes, an intermediate result is handed off, or ordering, side effects, failure consequences, or compensation boundaries differ. This applies even when the calls share one receiver. Preparation or mapping cannot share one comment with remote execution, persistence, publication, or response construction unless purpose, precondition, result consumer, and failure semantics are all the same.
 
+### State Changes And Diagnostic Logging
+
+When a primary state change is followed by multi-line diagnostic-log assembly, keep the actual write visible before the log block when that matches the event being described and preserves audit and failure semantics. If the log payload's field extraction or serialization could make the write easy to miss, put one intent comment between the write and the log block. Name the changed subject and the diagnostic fact being recorded; do not imply persistence, request transmission, or overall success unless those have happened.
+
+For example, after replacing an address in request parameters, a comment can explain that the following log records which address the request will use and the before/after values. Do not annotate the `put` merely to restate assignment. A clear write followed immediately by a self-explanatory one-line log does not need an extra comment. If a confirmed audit contract requires logging before the write, preserve that order and explain the contract instead of reordering for appearance.
+
 When a method begins with three or more terminating guards, add one comment before the first guard that explains the validation boundary. A smaller cluster also needs one comment when it crosses input, configuration, state, security, or error-classification boundaries. Do not comment each `if` mechanically.
 
 Comments explain intent, boundaries, downstream use, or consequences rather than restating syntax. Do not comment self-evident assignments, pure predicates, getters, or direct calls whose full contract is visible. JavaDoc, logs, catch-local comments, and nested comments do not replace a required top-level stage comment.

@@ -45,7 +45,7 @@ These are hard quality gates for changed behavior:
 - trace related values through validation, mapping, serialization, persistence, remote calls, caches, logs, errors, and outputs
 - assign clear owners and safe ordering for validation, state transitions, persistence, cleanup, delayed work, retries, compensation, and resources
 - do not hide meaningful I/O, mutation, fallback, retry, compensation, cleanup, or lifecycle changes inside an apparently pure calculation
-- document independent public or application-defined business actions and stages; write plain, concrete, evidence-backed intent comments for hidden reason, precondition, handoff, order, compatibility, or failure consequence
+- document independent public or application-defined business actions and stages; write plain, concrete, evidence-backed intent comments for hidden reason, precondition, handoff, order, compatibility, or failure consequence. Keep a primary state write visible before later multi-line diagnostic-log assembly when that matches the real contract; if the log block could obscure what changed, explain the transition and what completed change the log records. Preserve required audit and failure ordering, and do not force a comment before an obvious adjacent one-line log
 - compare short helpers, fields, and constants with writing them at use sites; reuse count, JavaDoc, or a clear name alone does not justify extraction
 - comment behavior-changing `catch` branches before fallback, degradation, retry, suppression, continuation, compensation, or exception conversion; transparent direct rethrows are exempt
 - keep error code, exception type, message, actual failure reason, and effective recovery action aligned

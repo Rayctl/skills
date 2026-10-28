@@ -193,6 +193,21 @@ throw new BusinessException(
 
 删掉正文注释后没有丢失信息，可以删除这条重复说明；必需的 JavaDoc、入口校验说明、行为变化的 catch 和关键阶段说明应改写得更具体。一个注释可以说明执行同一规则的一组语句，准备、远程调用和保存等不同阶段仍要按各自的隐藏规则检查。
 
+主状态写入后如果紧接着多行拼装前后值、来源等诊断日志，在写入与日志块之间说明日志记录的是什么，避免真正的状态变化被日志准备遮住；简单写入后直接跟一条一眼能看懂的日志，不强制加注释。日志契约要求先记录时，保留真实顺序并说明原因。
+
+```java
+Object previousFromAddress = orderParams.get("from_address");
+orderParams.put("from_address", shipFromParams);
+
+// 记录本次下单参数采用的发件地址及覆盖前后值，便于排查地址选择结果
+Map<String, Object> shipFromOverrideLog = new LinkedHashMap<>();
+shipFromOverrideLog.put("before", previousFromAddress);
+shipFromOverrideLog.put("after", shipFromParams);
+Loggers.BIZ.info(JSONUtil.toJsonStr(shipFromOverrideLog), "carrier.order.ship_from.override");
+```
+
+注释只描述已发生的参数覆盖和日志用途，不暗示订单已持久化或请求已发送。
+
 例如，假设代码确实在全部明细通过校验后才保存：
 
 ```java

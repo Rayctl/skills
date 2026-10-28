@@ -1469,6 +1469,26 @@
       "fixture": "The formal authentication contract intentionally uses one generic caller message for unknown account and incorrect password to prevent enumeration. The internal diagnostic owner can distinguish these failures under access-controlled logging. Proposed wording exposes which account exists and includes submitted credentials. No change to the public security contract is authorized.",
       "expected_decisions": ["Keep the established safe caller error rather than enumerate restricted predicates or credential values", "Preserve authorized internal diagnosis separately from user communication", "Explain that completeness concerns information the audience may safely receive under the actual contract"],
       "disallowed_decisions": ["Expose account existence to make the error more specific", "Include submitted credentials", "Treat a public message as a dump of every internal guard"]
+    },
+    {
+      "id": "primary-state-write-before-multiline-diagnostic-log",
+      "title": "A main state change remains visible before diagnostic payload assembly",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc", "method-design"],
+      "prompt": "这段先拼装覆盖日志，最后才更新请求参数，读起来清楚吗？",
+      "fixture": "The changed method resolves a replacement ship-from address, then builds a multi-field before/after diagnostic map and serializes it for logging, and only after logging calls orderParams.put(\"from_address\", shipFromParams). The confirmed behavior is to replace the in-memory request parameter before the outgoing request is built; the log describes that selected value. No audit contract requires pre-write logging.",
+      "expected_decisions": ["Make the request-parameter write visible before the multi-line diagnostic-log block", "Place one intent comment between the write and log assembly explaining which applied parameter value and before/after facts are recorded", "Avoid claiming the order was persisted or the request was sent", "Preserve the logger and established log fields"],
+      "disallowed_decisions": ["Leave the primary write visually buried after log assembly", "Add a comment that merely restates the put", "Force a comment before every simple assignment or one-line log", "Change the meaning or fields of the diagnostic event without requirement"]
+    },
+    {
+      "id": "obvious-adjacent-single-line-diagnostic-log-needs-no-comment",
+      "title": "A direct log after an obvious write does not need a mechanical comment",
+      "mode": "review",
+      "triggers": ["comments-and-javadoc"],
+      "prompt": "这个赋值后面的日志也需要加注释吗？",
+      "fixture": "The changed method executes statusByOrder.put(orderId, nextStatus) and immediately calls logger.info(\"Order status changed to {}\", nextStatus). The single-line log names the same status value, and there is no hidden contract, before/after payload, serialization, or separate diagnostic stage.",
+      "expected_decisions": ["Do not require an extra comment because the write and its direct one-line log are self-explanatory", "Apply the targeted comment rule only when multi-line log assembly could obscure the main action", "Preserve the current operation and log order"],
+      "disallowed_decisions": ["Require a comment between every state mutation and log call", "Treat visual spacing alone as a documentation obligation", "Move logging or the state write without a behavior reason"]
     }
   ]
 }
